@@ -1,0 +1,67 @@
+/* ============================================================
+   OdontogramResponsive.css
+
+   PROBLEMA RAÍZ:
+   El SVG tiene viewBox="0 0 409 694" — formato PORTRAIT (ratio ≈ 0.59).
+   Por cada 1px de ancho, el alto crece 1.7px. En una laptop con
+   ~400px de panel disponible, para ver todos los dientes sin scroll
+   el ancho máximo es 400 × 0.59 ≈ 236px. Demasiado angosto.
+
+   ESTRATEGIA:
+   Usar media queries por ALTURA de viewport (no por ancho).
+   En laptops (pantallas bajas): ancho menor → altura menor → más dientes visibles.
+   En pantallas grandes: ancho mayor → mejor visualización.
+
+   FÓRMULA: max-width ≈ (viewport_height - fixed_UI) × 0.59
+   fixed_UI ≈ header(56) + banner(70) + outer_padding(32) + filter(48) + hallazgos(160) = 366px
+
+   Con esto el odontograma ocupa ~85-90% del espacio vertical disponible.
+
+   Para cambiar el tamaño en cada breakpoint: edita los valores de max-width.
+   Para cambiar los breakpoints: edita los valores min-height del @media.
+   ============================================================ */
+
+/* ── BASE: Laptops y pantallas ≤800px de alto ─────────────────
+   Viewport ~768px → disponible ≈ 402px → width ideal: 402×0.59=237px
+   Usamos 310px para que los dientes sean más grandes (scroll ~100px). */
+.odontograma-fit {
+  width: 100%;
+  max-width: min(100%, 310px);
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* ── Pantallas medianas (800-900px alto) ───────────────────────
+   Viewport ~850px → disponible ≈ 484px → width ideal: 284px
+   Usamos 380px para mejorar visibilidad (scroll ~160px). */
+@media (min-height: 800px) {
+  .odontograma-fit {
+    max-width: min(100%, 380px);
+  }
+}
+
+/* ── Pantallas grandes (900-1000px alto) ───────────────────────
+   Viewport ~950px → disponible ≈ 584px → width ideal: 344px
+   Usamos 440px para buena densidad visual (scroll ~205px). */
+@media (min-height: 900px) {
+  .odontograma-fit {
+    max-width: min(100%, 440px);
+  }
+}
+
+/* ── Pantallas muy grandes (≥1000px alto) ──────────────────────
+   Viewport ~1080px → disponible ≈ 714px → width ideal: 421px
+   Usamos 500px: casi todo el odontograma visible sin scroll. */
+@media (min-height: 1000px) {
+  .odontograma-fit {
+    max-width: min(100%, 500px);
+  }
+}
+
+/* El componente ya aplica width:100% y height:auto inline en el SVG.
+   Estas reglas refuerzan en caso de que otro CSS las sobrescriba. */
+.odontograma-fit svg {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+}
