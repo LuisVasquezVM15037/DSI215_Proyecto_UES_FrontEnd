@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Odontogram } from 'react-odontogram';
 import 'react-odontogram/style.css';
-import '../styles/Odontograma.css';
+import '../styles/odontograma.css';
 import HallazgosList from './HallazgosList';
 import TratamientoSelector from './TratamientoSelector';
 import Button from './ui/Button';
