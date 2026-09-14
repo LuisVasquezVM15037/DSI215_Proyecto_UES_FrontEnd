@@ -1,3 +1,8 @@
+// Hook useAgenda: estado + CRUD de citas, pacientes y odontólogos
+// aca se importan los servicios y utils necesarios para manejar la agenda de citas, incluyendo funciones para obtener, crear, actualizar y cancelar citas,
+// así como para manejar pacientes y odontólogos. También se definen constantes y funciones auxiliares para formatear fechas y horas, y para mostrar alertas al usuario. 
+// El hook devuelve un objeto con el estado de la agenda y las funciones necesarias para interactuar con ella desde los componentes que lo utilicen.
+
 import { useState, useEffect, useMemo } from 'react';
 import {
   getCitas, createCita, updateCita,

@@ -25,7 +25,8 @@ const StatCard = ({ value, label, color, icon }) => (
 
 /**
  * Página principal del módulo de consultas.
- * Toda la lógica de datos vive en useConsultaIndex.
+ * Muestra las citas del día, estadísticas y permite buscar el historial de un paciente.
+ * tambien permite iniciar o ver consultas según el estado de la cita.
  */
 const ConsultaIndexPage = () => {
   const navigate = useNavigate();

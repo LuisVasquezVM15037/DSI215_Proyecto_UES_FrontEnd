@@ -71,7 +71,7 @@ const LoginPage = () => {
           <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
             <i className="bi bi-shield-check text-dental-300 text-sm" />
           </div>
-          <span className="text-xs text-primary-300">Diseño de Sistemas I - Universidad de El Salvador <br /> Derechos Reservados / Ciclo 01-2026</span>
+          <span className="text-xs text-primary-300">Diseño de Sistemas II - Universidad de El Salvador <br /> Derechos Reservados / Ciclo 02-2026</span>
         </div>
       </div>
 

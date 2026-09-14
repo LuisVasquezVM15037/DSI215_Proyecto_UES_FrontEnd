@@ -19,8 +19,7 @@ import LoadingScreen from './components/ui/LoadingScreen';
 import { ROLES } from './constants/roles.constants';
 
 // Vista con carga ansiosa (eager) — PBI "Revisar accesos".
-// NOTA: a diferencia del resto, esta vista NO usa lazy(). Ver comentario al final
-// del archivo para la mejora pendiente de consistencia.
+
 import AccessReviewPage from './views/AccessReviewPage';
 
 /**
@@ -28,12 +27,12 @@ import AccessReviewPage from './views/AccessReviewPage';
  * cada módulo genera su propio chunk en el build, de modo que el bundle inicial
  * solo carga el LoginPage + el shell de la aplicación (Layout y guards).
  */
-const LoginPage              = lazy(() => import('./views/LoginPage'));
-const DashboardPage          = lazy(() => import('./views/DashboardPage'));
-const AppointmentPage        = lazy(() => import('./views/AppointmentPage'));
-const PatientManagementPage  = lazy(() => import('./views/PatientManagementPage'));
-const UserManagementPage     = lazy(() => import('./views/UserManagementPage'));
-const ConsultaIndexPage      = lazy(() => import('./views/ConsultaIndexPage'));
+const LoginPage = lazy(() => import('./views/LoginPage'));
+const DashboardPage = lazy(() => import('./views/DashboardPage'));
+const AppointmentPage = lazy(() => import('./views/AppointmentPage'));
+const PatientManagementPage = lazy(() => import('./views/PatientManagementPage'));
+const UserManagementPage = lazy(() => import('./views/UserManagementPage'));
+const ConsultaIndexPage = lazy(() => import('./views/ConsultaIndexPage'));
 const ActiveConsultationPage = lazy(() => import('./views/ActiveConsultationPage'));
 
 // Componentes auxiliares ─────────────────────────────────────────────────
@@ -45,7 +44,7 @@ const NotFound = () => (
   <div className="flex flex-col items-center justify-center h-full py-20 gap-4">
     <i className="bi bi-exclamation-circle text-5xl text-slate-300" />
     <h2 className="text-2xl font-bold text-slate-600">404 — Página no encontrada</h2>
-    <p className="text-slate-400 text-sm">La ruta que buscas no existe.</p>
+    <p className="text-slate-400 text-sm">Disculpe el inconveniente. La ruta que buscas no existe.</p>
   </div>
 );
 
@@ -89,14 +88,18 @@ export default function App() {
             {/* Dashboard — cualquier rol autenticado */}
             <Route path="/dashboard" element={<DashboardPage />} />
 
-            {/* Agenda: todos los roles */}
-            <Route path="/agenda" element={<AppointmentPage />} />
+            {/* Agenda: Solamente la secretaria puede crear, programar y reprogramar una cita / gerencia y administrador con acceso total*/}
+            <Route path="/agenda" element={
+              <RoleRoute roles={[ROLES.ADMIN, ROLES.SECRETARIA, ROLES.GERENTE]}>
+                <AppointmentPage />
+              </RoleRoute>
+            }
+            />
 
             {/* Pacientes: admin + secretaria */}
-            <Route
-              path="/pacientes"
+            <Route path="/pacientes"
               element={
-                <RoleRoute roles={[ROLES.ADMIN, ROLES.SECRETARIA]}>
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.SECRETARIA, ROLES.GERENTE]}>
                   <PatientManagementPage />
                 </RoleRoute>
               }
@@ -106,7 +109,7 @@ export default function App() {
             <Route
               path="/consulta"
               element={
-                <RoleRoute roles={[ROLES.ADMIN, ROLES.ODONTOLOGO]}>
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.ODONTOLOGO, ROLES.ADMIN]}>
                   <ConsultaIndexPage />
                 </RoleRoute>
               }
@@ -126,7 +129,7 @@ export default function App() {
             <Route
               path="/usuarios"
               element={
-                <RoleRoute roles={[ROLES.ADMIN]}>
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.GERENTE]}>
                   <UserManagementPage />
                 </RoleRoute>
               }

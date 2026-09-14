@@ -34,7 +34,7 @@ const Select = ({ children, ...props }) => (
 
 /**
  * Página de gestión de usuarios del sistema.
- * Lógica en useUserManagement — FIX BUG-01 (doble fetch eliminado).
+ * Lógica en useUserManagement
  */
 const UserManagementPage = () => {
   const {

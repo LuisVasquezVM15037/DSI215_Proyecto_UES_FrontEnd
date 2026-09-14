@@ -3,9 +3,14 @@
  * guarda auth.service.js en localStorage como 'userRole'
  */
 export const ROLES = {
-  ADMIN:          'admin',
+  ADMIN:          'administrador',
   ODONTOLOGO:     'odontologo',
-  SECRETARIA:  'secretaria',
+  RECEPCIONISTA:  'recepcionista',
+  PACIENTE:       'paciente',
+  GERENTE:        'gerente',
+  ASISTENTEODONTOLOGO: 'asistenteOdontologo',
+  PROVEEDOR:       'proveedor',
+  OTRO:          'otro',
 };
 
 /** Helper: normaliza el rol a minúsculas para comparaciones de ser necesario*/

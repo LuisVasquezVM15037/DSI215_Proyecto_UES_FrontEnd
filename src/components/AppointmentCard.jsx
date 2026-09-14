@@ -11,7 +11,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogram }) => {
   // Determina si el botón de cancelar debe mostrarse.
   // Los estados en este array indican citas que ya no pueden ser canceladas.
-  const canCancel = !['CANCELADA', 'COMPLETADA', 'FINALIZADA', 'NO ASISTIO', 'REPROGRAMADA'].includes(app.estadoCita);
+  const canCancel = !['CANCELADA', 'COMPLETADA', 'FINALIZADA'].includes(app.estadoCita);
 //app> Objeto cita con campos: nombreCompletoPaciente, estadoCita, horaInicioCita, especialidadOdontologo.
 //compact> Activa el modo compacto. Default: false
 //onEditar> Callback al presionar el botón de editar. Recibe el objeto `app`.
