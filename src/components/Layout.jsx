@@ -20,14 +20,14 @@ const NAV_ITEMS = [
     path:  '/agenda',
     icon:  'bi-calendar3',
     label: 'Agenda',    
-    allowedRoles: [ROLES.ADMIN, ROLES.SECRETARIA],
+    allowedRoles: [ROLES.ADMIN, ROLES.RECEPCIONISTA, ROLES.GERENTE],
   },
   {
      // Para que solo el admin y la secretaria puedan ver los pacientes
     path:         '/pacientes',
     icon:         'bi-people',
     label:        'Pacientes',
-    allowedRoles: [ROLES.ADMIN, ROLES.SECRETARIA],
+    allowedRoles: [ROLES.ADMIN, ROLES.rECEPCIONISTA, ROLES.GERENTE],
   },
   {
      // Para que solo el admin y odontologo puedan ver las consultas
