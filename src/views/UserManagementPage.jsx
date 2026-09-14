@@ -43,6 +43,9 @@ const UserManagementPage = () => {
     handleSubmit, handleCancel, handleDelete,
   } = useUserManagement();
 
+  const rolSeleccionado = roles.find(r => String(r.idRol) === String(formData.idRol));
+  const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
+
   return (
     <div className="flex h-full bg-surface overflow-hidden">
 
@@ -68,7 +71,7 @@ const UserManagementPage = () => {
             />
           )}
           {users.map(u => {
-            const initials  = `${u.nombreUsuario?.[0] ?? ''}${u.apellidoUsuario?.[0] ?? ''}`;
+            const initials = `${u.nombreUsuario?.[0] ?? ''}${u.apellidoUsuario?.[0] ?? ''}`;
             const isSelected = selectedId === u.idUsuario;
             return (
               <button
@@ -78,8 +81,8 @@ const UserManagementPage = () => {
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left
                             transition-all
                             ${isSelected
-                              ? 'bg-primary-600 text-white shadow-sm'
-                              : 'hover:bg-slate-50 text-slate-700'}`}
+                    ? 'bg-primary-600 text-white shadow-sm'
+                    : 'hover:bg-slate-50 text-slate-700'}`}
               >
                 <AvatarBadge initials={initials} size="sm" inactive={!u.esActivo} />
                 <div className="min-w-0 flex-1">
@@ -206,6 +209,30 @@ const UserManagementPage = () => {
                 ))}
               </Select>
             </div>
+
+            {/* Campos exclusivos de Odontólogo */}
+            {esOdontologo && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FieldLabel required>Especialidad</FieldLabel>
+                  <Input
+                    name="especialidadOdontologo"
+                    placeholder="Ortodoncia"
+                    value={formData.especialidadOdontologo ?? ''}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div>
+                  <FieldLabel required>Número de JVPO</FieldLabel>
+                  <Input
+                    name="jvpoId"
+                    placeholder="JVPO-004"
+                    value={formData.jvpoId ?? ''}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Estado (solo edición) */}
             {isEditing && (

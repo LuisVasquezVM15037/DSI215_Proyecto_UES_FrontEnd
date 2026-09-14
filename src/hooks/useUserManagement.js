@@ -13,6 +13,9 @@ const FORM_INICIAL = {
   password:        '',
   idRol:           1,
   esActivo:        true,
+  // NUEVO: campos exclusivos del rol Odontologo
+  especialidadOdontologo: '',
+  jvpoId:                 '',
 };
 
 /**
@@ -71,6 +74,9 @@ export const useUserManagement = () => {
       // Resolver el idRol desde el array de roles cargados
       idRol:   roles.find(r => r.nombreRol === user.rol)?.idRol ?? roles[0]?.idRol ?? 1,
       esActivo: user.esActivo,
+      // NUEVO: por ahora quedan vacíos al editar (ver nota abajo)
+      especialidadOdontologo: user.especialidadOdontologo ?? '',
+      jvpoId:                 user.jvpoId ?? '',
     });
   };
 
