@@ -90,7 +90,7 @@ export default function App() {
 
             {/* Agenda: Solamente la secretaria puede crear, programar y reprogramar una cita / gerencia y administrador con acceso total*/}
             <Route path="/agenda" element={
-              <RoleRoute roles={[ROLES.ADMIN, ROLES.SECRETARIA, ROLES.GERENTE]}>
+              <RoleRoute roles={[ROLES.ADMIN, ROLES.RECEPCIONISTA, ROLES.GERENTE]}>
                 <AppointmentPage />
               </RoleRoute>
             }
@@ -99,7 +99,7 @@ export default function App() {
             {/* Pacientes: admin + secretaria */}
             <Route path="/pacientes"
               element={
-                <RoleRoute roles={[ROLES.ADMIN, ROLES.SECRETARIA, ROLES.GERENTE]}>
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.RECEPCIONISTA, ROLES.GERENTE]}>
                   <PatientManagementPage />
                 </RoleRoute>
               }

@@ -3,7 +3,7 @@
  * guarda auth.service.js en localStorage como 'userRole'
  */
 export const ROLES = {
-  ADMIN:          'administrador',
+  ADMIN:          'admin',
   ODONTOLOGO:     'odontologo',
   RECEPCIONISTA:  'recepcionista',
   PACIENTE:       'paciente',
