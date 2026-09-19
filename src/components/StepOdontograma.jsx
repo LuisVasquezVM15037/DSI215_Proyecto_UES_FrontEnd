@@ -47,7 +47,7 @@ const StepOdontograma = ({
   }, [hallazgos]);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-5 mt-2 flex-1 overflow-hidden animate-fade-in">
+    <div className="flex gap-4 mt-2 flex-1 min-h-0 overflow-hidden animate-fade-in">
 
       {/* ── COLUMNA IZQUIERDA: Odontograma y Hallazgos ────────────────────────── */}
       <div className="flex-1 flex flex-col bg-white rounded-3xl border border-slate-200/80
@@ -74,10 +74,10 @@ const StepOdontograma = ({
           </div>
         </div>
 
-        {/* Contenedor del Odontograma con Scroll */}
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col items-center justify-between">
+        {/* Contenedor del Odontograma con Scroll (contenedor de bloque estándar para permitir cálculo SVG) */}
+        <div className="flex-1 overflow-y-auto p-4 min-h-0">
           {showHistorial ? (
-            <div className="w-full max-w-md my-auto text-center py-10">
+            <div className="w-full max-w-md mx-auto my-auto text-center py-10">
               <div className="w-14 h-14 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-3">
                 <i className="bi bi-clock-history text-2xl" />
               </div>
@@ -89,9 +89,9 @@ const StepOdontograma = ({
               </p>
             </div>
           ) : (
-            <div className="w-full flex flex-col items-center">
+            <div className="w-full">
               {/* Leyenda de colores del odontograma */}
-              <div className="flex items-center gap-5 mb-3 px-2">
+              <div className="flex items-center justify-center gap-5 mb-3 px-2">
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
                   <span className="w-3 h-3 rounded-full bg-red-100 border-2 border-red-500 flex-shrink-0" />
                   Hallazgo Registrado
@@ -109,7 +109,7 @@ const StepOdontograma = ({
                   theme="light"
                   notation="FDI"
                   teethConditions={teethConditions}
-                  showLabels={hallazgos?.length > 0}
+                  showLabels={false}
                 />
               </div>
 
@@ -131,7 +131,7 @@ const StepOdontograma = ({
       </div>
 
       {/* ── COLUMNA DERECHA: Panel de asignación de tratamiento ───────────────── */}
-      <aside className="w-full lg:w-84 flex-shrink-0 flex flex-col bg-white rounded-3xl
+      <aside className="w-72 sm:w-80 flex-shrink-0 flex flex-col bg-white rounded-3xl
                         border border-slate-200/80 shadow-card p-5 gap-4 overflow-y-auto">
 
         <div className="border-b border-slate-100 pb-3">

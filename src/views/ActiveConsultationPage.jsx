@@ -71,7 +71,7 @@ const ActiveConsultationPage = () => {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full p-4 gap-4 bg-surface overflow-hidden">
+    <div className="flex flex-col flex-1 h-full min-h-0 p-4 gap-4 bg-surface overflow-hidden">
 
       {/* Banner con datos del paciente y stepper */}
       <ConsultaBanner

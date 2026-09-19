@@ -264,7 +264,7 @@ const Layout = () => {
         </header>
 
         {/* Área de rutas hijas */}
-        <div className="flex-1 overflow-auto bg-surface">
+        <div className="flex-1 flex flex-col min-h-0 overflow-auto bg-surface">
           <Outlet />
         </div>
       </main>
