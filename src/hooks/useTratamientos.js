@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   getTratamientos, createTratamiento, createHallazgo,
 } from '../services/consulta.service';
-import { alertSuccess, alertError, alertWarning, toastSuccess } from '../utils/alert.utils';
+import { alertError, alertWarning, toastSuccess } from '../utils/alert.utils';
 
 /**
  * Hook de tratamientos: catálogo y registro de hallazgos en el odontograma.
@@ -15,14 +15,18 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
   const [customPrecio,        setCustomPrecio]        = useState('');
   const [savingHallazgo,      setSavingHallazgo]      = useState(false);
 
-  useEffect(() => { loadTratamientos(); }, []);
-
   const loadTratamientos = async () => {
     try {
       const data = await getTratamientos();
       setTratamientos(data ?? []);
-    } catch (_) {}
+    } catch (err) {
+      console.error('Error al cargar catálogo de tratamientos:', err);
+    }
   };
+
+  useEffect(() => {
+    loadTratamientos();
+  }, []);
 
   const handleOdontogramChange = (teeth) => setSelectedTeeth(teeth);
 

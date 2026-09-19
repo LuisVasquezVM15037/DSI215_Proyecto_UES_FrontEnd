@@ -81,15 +81,29 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
     }
   };
 
+  const escapeHtml = (str) => {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  };
+
   const imprimirReceta = () => {
+    const pacienteNombre = escapeHtml(cita.nombreCompletoPaciente || 'Paciente');
+    const pacienteDui    = escapeHtml(cita.numeroIdentidadPaciente || 'No especificado');
+    const especialista   = escapeHtml(cita.especialidadOdontologo || 'Odontólogo General');
+
     const detallesReceta = prescripcion?.detalles?.map((med, index) => `
       <tr>
         <td style="text-align: center; font-weight: bold; color: #64748b;">${index + 1}</td>
-        <td><strong>${med.nombreMedicamento || ''}</strong></td>
-        <td>${med.dosis || 'Dosis indicada'}</td>
-        <td>${med.frecuencia || 'Según indicación'}</td>
-        <td>${med.duracion ? `${med.duracion} días` : '-'}</td>
-        <td style="font-style: italic; color: #475569;">${med.indicaciones || 'Ninguna'}</td>
+        <td><strong>${escapeHtml(med.nombreMedicamento || '')}</strong></td>
+        <td>${escapeHtml(med.dosis || 'Dosis indicada')}</td>
+        <td>${escapeHtml(med.frecuencia || 'Según indicación')}</td>
+        <td>${med.duracion ? `${escapeHtml(med.duracion)} días` : '-'}</td>
+        <td style="font-style: italic; color: #475569;">${escapeHtml(med.indicaciones || 'Ninguna')}</td>
       </tr>
     `).join('');
 
@@ -98,7 +112,7 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
       <html lang="es">
         <head>
           <meta charset="utf-8" />
-          <title>Receta Médica — ${cita.nombreCompletoPaciente}</title>
+          <title>Receta Médica — ${pacienteNombre}</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 30px; color: #1e293b; }
             .header { border-bottom: 2px solid #0284c7; padding-bottom: 15px; margin-bottom: 20px; display: flex; justify-content: space-between; }
@@ -127,11 +141,11 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
 
           <div class="info-grid">
             <div class="info-box">
-              <strong>Paciente:</strong> ${cita.nombreCompletoPaciente}<br />
-              <strong>DUI:</strong> ${cita.numeroIdentidadPaciente || 'No especificado'}
+              <strong>Paciente:</strong> ${pacienteNombre}<br />
+              <strong>DUI:</strong> ${pacienteDui}
             </div>
             <div class="info-box">
-              <strong>Especialista:</strong> ${cita.especialidadOdontologo || 'Odontólogo General'}<br />
+              <strong>Especialista:</strong> ${especialista}<br />
               <strong>Estado:</strong> Consulta Finalizada
             </div>
           </div>

@@ -16,9 +16,9 @@ const AccessReviewPage = () => {
   const [fechaFin, setFechaFin] = useState('');
 
   const cargarRegistros = async () => {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setError('');
       const data = await getRegistrosAcceso();
       setRegistros(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -30,7 +30,19 @@ const AccessReviewPage = () => {
   };
 
   useEffect(() => {
-    cargarRegistros();
+    let active = true;
+    getRegistrosAcceso()
+      .then(data => {
+        if (active) setRegistros(Array.isArray(data) ? data : []);
+      })
+      .catch(err => {
+        console.error('Error al cargar registros de acceso:', err);
+        if (active) setError('No se pudieron cargar los registros de acceso. Por favor verifica la conexión con el servidor.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, []);
 
   // Formato de fecha legible
