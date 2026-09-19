@@ -13,6 +13,7 @@ import { getOdontologos } from '../services/usuario.service';
 import {
   normalizarFecha, formatDT,
   formatFechaHeader, formatHora, getEstadoConfig,
+  sincronizarCitasVencidas,
 } from '../utils/cita.utils';
 import {
   alertSuccess, alertError,
@@ -20,7 +21,7 @@ import {
 } from '../utils/alert.utils';
 
 // Re-exportar helpers para los componentes que los necesitan
-export { normalizarFecha, formatHora, formatFechaHeader, formatDT, getEstadoConfig };
+export { normalizarFecha, formatHora, formatFechaHeader, formatDT, getEstadoConfig, sincronizarCitasVencidas };
 
 const FORM_INICIAL = {
   idPaciente:     '',
@@ -55,7 +56,8 @@ export const useAgenda = (date) => {
       const [citas, pacs, odont] = await Promise.all([
         getCitas(), getPacientes(), getOdontologos(),
       ]);
-      setAppointments(citas ?? []);
+      const citasSync = await sincronizarCitasVencidas(citas ?? [], cambiarEstado);
+      setAppointments(citasSync);
       setPacientes(pacs    ?? []);
       setOdontologos(odont ?? []);
     } catch (err) {
@@ -68,7 +70,8 @@ export const useAgenda = (date) => {
   const refetchCitas = async () => {
     try {
       const citas = await getCitas();
-      setAppointments(citas ?? []);
+      const citasSync = await sincronizarCitasVencidas(citas ?? [], cambiarEstado);
+      setAppointments(citasSync);
     } catch (err) {
       alertError(err.message);
     }
@@ -179,6 +182,32 @@ export const useAgenda = (date) => {
     }
   };
 
+  const handleCheckIn = async (cita) => {
+    setLoading(true);
+    try {
+      await cambiarEstado(cita.idCitas, 'PENDIENTE');
+      alertSuccess('Check-in registrado', `${cita.nombreCompletoPaciente} ha llegado y está en sala de espera.`);
+      await refetchCitas();
+    } catch (err) {
+      alertError(err.message || 'Error al registrar check-in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeshacerCheckIn = async (cita) => {
+    setLoading(true);
+    try {
+      await cambiarEstado(cita.idCitas, 'PROGRAMADA');
+      alertSuccess('Check-in revertido', `La cita de ${cita.nombreCompletoPaciente} regresó al estado Programada.`);
+      await refetchCitas();
+    } catch (err) {
+      alertError(err.message || 'Error al revertir check-in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return {
     appointments, loading,
     pacientes, odontologos,
@@ -190,6 +219,8 @@ export const useAgenda = (date) => {
     prepararEditarCita,
     handleCancelar,
     handleReprogramar,
+    handleCheckIn,
+    handleDeshacerCheckIn,
     handleSubmit,
   };
 };

@@ -178,9 +178,9 @@ const AppointmentPage = () => {
           <div className="grid grid-cols-2 gap-2.5 text-center">
             {[
               { label: 'Total', val: agenda.citasDelDia.length, color: 'text-primary-700', bg: 'bg-primary-50' },
-              { label: 'Pendientes', val: agenda.citasDelDia.filter(c => ['PROGRAMADA', 'PENDIENTE'].includes(c.estadoCita)).length, color: 'text-amber-700', bg: 'bg-amber-50' },
-              { label: 'Completadas', val: agenda.citasDelDia.filter(c => ['COMPLETADA', 'FINALIZADA'].includes(c.estadoCita)).length, color: 'text-emerald-700', bg: 'bg-emerald-50' },
-              { label: 'Canceladas', val: agenda.citasDelDia.filter(c => c.estadoCita === 'CANCELADA').length, color: 'text-red-600', bg: 'bg-red-50' },
+              { label: 'En Espera', val: agenda.citasDelDia.filter(c => c.estadoCita === 'PENDIENTE').length, color: 'text-teal-700', bg: 'bg-teal-50' },
+              { label: 'Programadas', val: agenda.citasDelDia.filter(c => c.estadoCita === 'PROGRAMADA').length, color: 'text-amber-700', bg: 'bg-amber-50' },
+              { label: 'Atendidas', val: agenda.citasDelDia.filter(c => ['COMPLETADA', 'FINALIZADA'].includes(c.estadoCita)).length, color: 'text-emerald-700', bg: 'bg-emerald-50' },
             ].map(({ label, val, color, bg }) => (
               <div key={label} className={`${bg} rounded-2xl p-3 border border-black/5`}>
                 <p className={`text-xl font-extrabold tabular-nums leading-none ${color}`}>{val}</p>
@@ -329,6 +329,8 @@ const AppointmentPage = () => {
                     onEditar={handleEditar}
                     onCancelar={agenda.handleCancelar}
                     onReprogram={(cita) => { agenda.setSelectedCita(cita); setReprogramCita(cita); }}
+                    onCheckIn={agenda.handleCheckIn}
+                    onDeshacerCheckIn={agenda.handleDeshacerCheckIn}
                   />
                 ))}
               </div>
@@ -370,6 +372,8 @@ const AppointmentPage = () => {
                             compact
                             onEditar={handleEditar}
                             onCancelar={agenda.handleCancelar}
+                            onCheckIn={agenda.handleCheckIn}
+                            onDeshacerCheckIn={agenda.handleDeshacerCheckIn}
                           />
                         ))
                       )}

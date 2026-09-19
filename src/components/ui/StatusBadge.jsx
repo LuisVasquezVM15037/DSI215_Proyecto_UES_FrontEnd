@@ -10,12 +10,12 @@ import { getEstadoConfig } from '../../utils/cita.utils';
 //Clave del estado de la cita (ej: 'PROGRAMADA', 'CANCELADA', 'COMPLETADA').
 const DOT_COLORS = {
   PROGRAMADA:   'bg-amber-500',
-  PENDIENTE:    'bg-amber-500',
+  PENDIENTE:    'bg-teal-500 animate-pulse',
   EN_PROGRESO:  'bg-sky-500 animate-pulse',
   COMPLETADA:   'bg-emerald-500',
   FINALIZADA:   'bg-emerald-500',
   REPROGRAMADA: 'bg-violet-500',
-  NO_ASISTIO:   'bg-red-500',
+  NO_ASISTIO:   'bg-rose-500',
   CANCELADA:    'bg-red-500',
   OTRO:         'bg-slate-400',
 };

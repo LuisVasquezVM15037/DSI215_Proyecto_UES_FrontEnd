@@ -137,20 +137,66 @@ export const normalizarFechaNacimiento = (fechaNac) => {
  * Esta es la úncia definición
  */
 export const ESTADO_CONFIG = {
-  PROGRAMADA: { tw: 'bg-amber-50   text-amber-700   ring-1 ring-amber-200', label: 'Programada' },
-  PENDIENTE: { tw: 'bg-amber-50   text-amber-700   ring-1 ring-amber-200', label: 'Pendiente' },
-  EN_PROGRESO: { tw: 'bg-sky-50     text-sky-700     ring-1 ring-sky-200', label: 'En progreso' },
-  COMPLETADA: { tw: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', label: 'Completada' },
-  FINALIZADA: { tw: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', label: 'Finalizada' },
+  PROGRAMADA:   { tw: 'bg-amber-50   text-amber-700   ring-1 ring-amber-200', label: 'Programada' },
+  PENDIENTE:    { tw: 'bg-teal-50    text-teal-700    ring-1 ring-teal-200',  label: 'En sala de espera' },
+  EN_PROGRESO:  { tw: 'bg-sky-50     text-sky-700     ring-1 ring-sky-200',   label: 'En progreso' },
+  COMPLETADA:   { tw: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', label: 'Completada' },
+  FINALIZADA:   { tw: 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200', label: 'Finalizada' },
   REPROGRAMADA: { tw: 'bg-violet-50  text-violet-700  ring-1 ring-violet-200', label: 'Reprogramada' },
-  NO_ASISTIO: { tw: 'bg-red-50     text-red-600     ring-1 ring-red-200', label: 'No asistió' },
-  CANCELADA: { tw: 'bg-red-50     text-red-600     ring-1 ring-red-200', label: 'Cancelada' },
-  OTRO: { tw: 'bg-slate-100  text-slate-600', label: 'Otro' },
+  NO_ASISTIO:   { tw: 'bg-rose-50    text-rose-600    ring-1 ring-rose-200',  label: 'No asistió' },
+  CANCELADA:    { tw: 'bg-red-50     text-red-600     ring-1 ring-red-200',   label: 'Cancelada' },
+  OTRO:         { tw: 'bg-slate-100  text-slate-600',                          label: 'Otro' },
 };
 
 /** Devuelve la config de un estado, con fallback seguro */
 export const getEstadoConfig = (estado) =>
   ESTADO_CONFIG[estado] ?? { tw: 'bg-slate-100 text-slate-500', label: estado ?? '—' };
+
+/**
+ * Detecta citas que vencieron en días anteriores (fecha < hoy) y que aún están en estado
+ * PROGRAMADA o PENDIENTE (el paciente no asistió y el día cambió).
+ * Ejecuta la actualización de estado a 'NO_ASISTIO' en el backend y retorna la lista actualizada.
+ *
+ * @param {Array} listaCitas - Lista de citas
+ * @param {Function} cambiarEstadoFn - Función (idCita, nuevoEstado)
+ * @returns {Promise<Array>} - Lista de citas con los estados sincronizados
+ */
+export const sincronizarCitasVencidas = async (listaCitas, cambiarEstadoFn) => {
+  if (!Array.isArray(listaCitas) || !cambiarEstadoFn || listaCitas.length === 0) {
+    return listaCitas || [];
+  }
+  const hoy = getHoyLocal();
+
+  const vencidas = listaCitas.filter(c => {
+    const fecha = normalizarFecha(c.fechaCita);
+    if (!fecha) return false;
+    const esDiaPasado = fecha < hoy;
+    const estadoNoFinal = ['PROGRAMADA', 'PENDIENTE'].includes(c.estadoCita);
+    return esDiaPasado && estadoNoFinal;
+  });
+
+  if (vencidas.length === 0) return listaCitas;
+
+  const actualizadasIds = new Set();
+  await Promise.allSettled(
+    vencidas.map(async (c) => {
+      try {
+        await cambiarEstadoFn(c.idCitas, 'NO_ASISTIO');
+        actualizadasIds.add(c.idCitas);
+      } catch (err) {
+        console.error(`Error al sincronizar cita vencida ID ${c.idCitas} a NO_ASISTIO:`, err);
+      }
+    })
+  );
+
+  if (actualizadasIds.size > 0) {
+    console.info(`[Sync Citas] Se sincronizaron ${actualizadasIds.size} citas vencidas a estado NO_ASISTIO.`);
+  }
+
+  return listaCitas.map(c =>
+    actualizadasIds.has(c.idCitas) ? { ...c, estadoCita: 'NO_ASISTIO' } : c
+  );
+};
 
 // ── Mapeo de estado hallazgo a Tailwind ───────────────────────────────────────
 export const HALLAZGO_ESTADO_CONFIG = {

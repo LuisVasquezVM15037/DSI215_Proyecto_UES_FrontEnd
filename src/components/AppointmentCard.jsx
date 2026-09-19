@@ -6,12 +6,36 @@ import AvatarBadge from './ui/AvatarBadge';
 /**
  * Tarjeta de citas moderna con dos modos de visualización (Día y Semana).
  */
-const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogram }) => {
+const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogram, onCheckIn, onDeshacerCheckIn }) => {
   const canCancel = !['CANCELADA', 'COMPLETADA', 'FINALIZADA'].includes(app.estadoCita);
   const initials = `${app.nombreCompletoPaciente?.[0] ?? '?'}`;
 
   const Actions = () => (
     <div className="flex items-center gap-1">
+      {app.estadoCita === 'PROGRAMADA' && onCheckIn && (
+        <button
+          type="button"
+          onClick={() => onCheckIn?.(app)}
+          aria-label="Registrar check-in"
+          title="Marcar llegada (Check-in)"
+          className="w-7 h-7 rounded-xl text-teal-600 hover:bg-teal-50 flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+        >
+          <i className="bi bi-person-check-fill text-xs" />
+        </button>
+      )}
+
+      {app.estadoCita === 'PENDIENTE' && onDeshacerCheckIn && (
+        <button
+          type="button"
+          onClick={() => onDeshacerCheckIn?.(app)}
+          aria-label="Deshacer check-in"
+          title="Deshacer check-in"
+          className="w-7 h-7 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+        >
+          <i className="bi bi-arrow-counterclockwise text-xs" />
+        </button>
+      )}
+
       {onReprogram && (
         <button
           type="button"
@@ -108,8 +132,34 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
             </div>
           </div>
 
-          <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+          <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-wrap">
             <StatusBadge estado={app.estadoCita} />
+
+            {/* Acción rápida de Check-in para secretaria */}
+            {app.estadoCita === 'PROGRAMADA' && onCheckIn && (
+              <button
+                type="button"
+                onClick={() => onCheckIn?.(app)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200/80 transition-all active:scale-95 shadow-2xs cursor-pointer"
+                title="Registrar llegada del paciente a la clínica (Check-in)"
+              >
+                <i className="bi bi-person-check-fill text-sm" />
+                <span>Check-in</span>
+              </button>
+            )}
+
+            {app.estadoCita === 'PENDIENTE' && onDeshacerCheckIn && (
+              <button
+                type="button"
+                onClick={() => onDeshacerCheckIn?.(app)}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 border border-slate-200/60 transition-all active:scale-95 cursor-pointer"
+                title="Deshacer check-in y regresar a Programada"
+              >
+                <i className="bi bi-arrow-counterclockwise text-xs" />
+                <span>Deshacer</span>
+              </button>
+            )}
+
             <Actions />
           </div>
         </div>

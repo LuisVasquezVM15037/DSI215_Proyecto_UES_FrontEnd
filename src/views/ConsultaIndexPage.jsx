@@ -34,6 +34,8 @@ const ConsultaIndexPage = () => {
     showHistorial, handleCerrarHistorial,
     pacienteSeleccionado, citasPaciente,
     handleBuscarHistorial,
+    handleCheckIn,
+    handleDeshacerCheckIn,
   } = useConsultaIndex();
 
   return (
@@ -103,11 +105,11 @@ const ConsultaIndexPage = () => {
           icon="bi-calendar-event"
         />
         <StatCard
-          value={stats.pendientes}
-          label="En Espera"
-          color="text-amber-700"
-          bgClass="bg-amber-50"
-          icon="bi-hourglass-split"
+          value={stats.enEspera}
+          label="En Sala de Espera"
+          color="text-teal-700"
+          bgClass="bg-teal-50"
+          icon="bi-person-check-fill"
         />
         <StatCard
           value={stats.completadas}
@@ -149,13 +151,35 @@ const ConsultaIndexPage = () => {
               >
                 <div>
                   {/* Horario y Estado */}
-                  <div className="flex items-center justify-between gap-2 mb-3.5">
+                  <div className="flex items-center justify-between gap-2 mb-3.5 flex-wrap">
                     <div className="inline-flex items-center gap-1.5 text-xs font-bold text-primary-700
                                     bg-primary-50 px-3 py-1 rounded-xl">
                       <i className="bi bi-clock text-[11px]" />
                       {formatHora(cita.horaInicioCita)} — {formatHora(cita.horaFinCita)}
                     </div>
-                    <StatusBadge estado={cita.estadoCita} />
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge estado={cita.estadoCita} />
+                      {cita.estadoCita === 'PROGRAMADA' && (
+                        <button
+                          type="button"
+                          onClick={() => handleCheckIn(cita)}
+                          title="Registrar Check-in (Paciente en sala de espera)"
+                          className="w-7 h-7 rounded-xl text-teal-600 hover:bg-teal-50 flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+                        >
+                          <i className="bi bi-person-check-fill text-xs" />
+                        </button>
+                      )}
+                      {cita.estadoCita === 'PENDIENTE' && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeshacerCheckIn(cita)}
+                          title="Deshacer Check-in"
+                          className="w-7 h-7 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600 flex items-center justify-center transition-colors active:scale-95 cursor-pointer"
+                        >
+                          <i className="bi bi-arrow-counterclockwise text-xs" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Info del paciente */}
