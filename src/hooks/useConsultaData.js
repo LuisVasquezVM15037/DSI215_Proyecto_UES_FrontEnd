@@ -123,15 +123,22 @@ export const useConsultaData = (citaId) => {
 
   // ── Finalizar consulta ────────────────────────────────────────────────────
   const handleFinalizarConsulta = async (onSuccess) => {
-    try {
-      await cambiarEstado(citaId, 'FINALIZADA');
-      setCita(prev => ({ ...prev, estadoCita: 'FINALIZADA' }));
-    } catch (err) {
-      // Si falla el cambio de estado, avanzar igual (prescripción ya guardada)
-      console.error('No se pudo cambiar el estado de la cita:', err.message);
-    } finally {
-      onSuccess?.();
+    // Regla de negocio: si se realizó al menos un hallazgo, la consulta pasa a FINALIZADA
+    const tieneRealizados = (hallazgos ?? []).some(h => {
+      const st = String(h.estadoPlan || '').toUpperCase();
+      return st === 'COMPLETADO' || st === 'FINALIZADO';
+    });
+
+    if (tieneRealizados) {
+      try {
+        await cambiarEstado(citaId, 'FINALIZADA');
+        setCita(prev => ({ ...prev, estadoCita: 'FINALIZADA' }));
+      } catch (err) {
+        console.error('No se pudo cambiar el estado de la cita a FINALIZADA:', err.message);
+      }
     }
+
+    onSuccess?.();
   };
 
   return {
