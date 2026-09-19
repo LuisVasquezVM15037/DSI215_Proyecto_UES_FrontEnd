@@ -6,6 +6,8 @@ import {
 } from '../services/consulta.service';
 import { alertSuccess, alertError, alertWarning, confirmDelete, toastSuccess } from '../utils/alert.utils';
 
+import { getPrecioHallazgo } from '../utils/cita.utils';
+
 /**
  * Hook principal de la consulta activa.
  * Gestiona: cita, evaluación clínica y hallazgos del odontograma.
@@ -62,7 +64,12 @@ export const useConsultaData = (citaId) => {
   const fetchHallazgos = async (idEvaluacion) => {
     try {
       const data = await getHallazgos(idEvaluacion);
-      setHallazgos(data ?? []);
+      const normalizados = (data ?? []).map(h => ({
+        ...h,
+        precioFloat: getPrecioHallazgo(h),
+        costoTratamiento: getPrecioHallazgo(h),
+      }));
+      setHallazgos(normalizados);
     } catch (_) {}
   };
 

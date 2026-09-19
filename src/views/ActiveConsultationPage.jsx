@@ -32,7 +32,9 @@ const ActiveConsultationPage = () => {
   const tratamientos = useTratamientos(
     consulta.evaluacion,
     () => consulta.fetchHallazgos(consulta.evaluacion?.idEvaluacionClinica),
+    consulta.hallazgos,
   );
+
 
   // ── Loading inicial ──────────────────────────────────────────────────────
   if (consulta.loading) {

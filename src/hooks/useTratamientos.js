@@ -8,7 +8,7 @@ import { alertSuccess, alertError, alertWarning, toastSuccess } from '../utils/a
  * Hook de tratamientos: catálogo y registro de hallazgos en el odontograma.
  * FIX BUG-12: los hallazgos de múltiples piezas se crean en paralelo con Promise.all.
  */
-export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
+export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallazgos = []) => {
   const [tratamientos,        setTratamientos]        = useState([]);
   const [selectedTeeth,       setSelectedTeeth]       = useState([]);
   const [selectedTratamiento, setSelectedTratamiento] = useState('');
@@ -44,21 +44,40 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
       return;
     }
 
+    // Regla de negocio: Cada hallazgo debe reportarse una vez por pieza dental
+    const listaActual = Array.isArray(existingHallazgos) ? existingHallazgos : [];
+    const piezasDuplicadas = selectedTeeth.filter(tooth => {
+      const fdi = parseInt(String(tooth.notations?.fdi || tooth.id || '').replace('teeth-', ''), 10);
+      return listaActual.some(h => h.piezaDental === fdi && String(h.estadoPlan || '').toUpperCase() !== 'CANCELADO');
+    });
+
+    if (piezasDuplicadas.length > 0) {
+      const nombresPiezas = piezasDuplicadas
+        .map(t => t.notations?.fdi || String(t.id || '').replace('teeth-', ''))
+        .join(', ');
+      alertWarning(`La(s) pieza(s) ${nombresPiezas} ya tiene(n) un hallazgo registrado en esta evaluación.`);
+      return;
+    }
+
     setSavingHallazgo(true);
     try {
-      // FIX BUG-12: crear todos los hallazgos en paralelo
+      // Registrar hallazgos en paralelo con precioFloat y estado inicial PENDIENTE (Presupuestado)
       await Promise.all(
         selectedTeeth.map(tooth => {
-          const pieza = tooth.notations?.fdi || tooth.id;
+          const fdi = String(tooth.notations?.fdi || tooth.id || '').replace('teeth-', '');
+          const piezaNum = parseInt(fdi, 10);
+          const precioNum = parseFloat(customPrecio) || 0;
           return createHallazgo({
             idEvaluacionClinica: evaluacion.idEvaluacionClinica,
-            idTratamiento:       parseInt(selectedTratamiento),
-            piezaDental:         parseInt(pieza),
-            costoAplicado:       parseFloat(customPrecio),
+            idTratamiento:       parseInt(selectedTratamiento, 10),
+            piezaDental:         piezaNum,
+            precioFloat:         precioNum,
+            costoAplicado:       precioNum,
+            estadoPlan:          'PENDIENTE',
           });
         })
       );
-      toastSuccess('Hallazgo registrado');
+      toastSuccess('Hallazgo registrado en presupuesto');
       onHallazgoRegistrado?.();
       setSelectedTeeth([]);
       setSelectedTratamiento('');

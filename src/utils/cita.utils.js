@@ -161,3 +161,16 @@ export const HALLAZGO_ESTADO_CONFIG = {
   CANCELADO:   { tw: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200/80', label: 'Cancelado' },
   OTRO:        { tw: 'bg-slate-100 text-slate-600', label: 'Otro' },
 };
+
+/**
+ * Obtiene el precio o costo monetario de un hallazgo con fallback seguro.
+ * El backend de Spring Boot retorna `precioFloat`, pero soporta `costoTratamiento`,
+ * `costoAplicado` y `precio`.
+ */
+export const getPrecioHallazgo = (h) => {
+  if (!h) return 0;
+  const val = h.precioFloat ?? h.costoTratamiento ?? h.costoAplicado ?? h.precio ?? h.costo;
+  const num = Number(val);
+  return Number.isFinite(num) ? num : 0;
+};
+

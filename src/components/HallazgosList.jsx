@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { ESTADOS_HALLAZGO_OPCIONES, ESTADO_HALLAZGO } from '../constants/estados.constants';
-import { HALLAZGO_ESTADO_CONFIG } from '../utils/cita.utils';
+import { HALLAZGO_ESTADO_CONFIG, getPrecioHallazgo } from '../utils/cita.utils';
 
 /**
- * Lista de hallazgos registrados en el odontograma con filtro de vista, subtotal y acciones rápidas.
+ * Lista de hallazgos registrados en el odontograma con filtro de vista, subtotal monetario
+ * y acciones operativas de flujo clínico (Presupuestar -> Programar -> Realizar).
  */
 const HallazgosList = ({
   hallazgos = [],
@@ -13,11 +14,9 @@ const HallazgosList = ({
   totalSinFiltrar = 0,
   onResetFilter,
 }) => {
+  // Cálculo de subtotal con soporte universal de precioFloat / costoTratamiento
   const subtotal = useMemo(() => {
-    return hallazgos.reduce((acc, h) => {
-      const costo = Number(h.costoAplicado ?? h.costoTratamiento) || 0;
-      return acc + costo;
-    }, 0);
+    return hallazgos.reduce((acc, h) => acc + getPrecioHallazgo(h), 0);
   }, [hallazgos]);
 
   if (hallazgos.length === 0) {
@@ -28,7 +27,7 @@ const HallazgosList = ({
             No hay procedimientos en vista <span className="font-bold text-primary-700">"{activeFilter}"</span>
           </p>
           <p className="text-[11px] text-slate-400 mb-2">
-            Existen {totalSinFiltrar} hallazgo(s) registrados en otros estados.
+            Existen {totalSinFiltrar} hallazgo(s) registrados en otros estados clínicos.
           </p>
           {onResetFilter && (
             <button
@@ -51,16 +50,23 @@ const HallazgosList = ({
   }
 
   const tituloFiltro = {
-    Hallazgos: 'Todos los Hallazgos',
-    Presupuestado: 'Procedimientos Presupuestados',
-    Programado: 'Procedimientos Programados',
-    Realizado: 'Procedimientos Realizados',
+    Hallazgos: 'Hallazgos Clínicos del Odontograma',
+    Presupuestado: 'Procedimientos Presupuestados (Pendientes)',
+    Programado: 'Procedimientos Programados para Cobro y Atención',
+    Realizado: 'Procedimientos Realizados / Concluidos',
   }[activeFilter] ?? `Hallazgos (${activeFilter})`;
+
+  const subtotalLabel = {
+    Hallazgos: 'Subtotal Hallazgos:',
+    Presupuestado: 'Total Presupuestado:',
+    Programado: 'Total a Cobrar en Consulta:',
+    Realizado: 'Total Realizado:',
+  }[activeFilter] ?? 'Subtotal:';
 
   return (
     <div className="mt-2 space-y-2">
-      {/* Header con resumen y subtotal monetario */}
-      <div className="flex items-center justify-between px-1 pb-1 border-b border-slate-100">
+      {/* Header con título contextual y subtotal monetario */}
+      <div className="flex items-center justify-between px-1 pb-1.5 border-b border-slate-100 flex-wrap gap-2">
         <div>
           <h6 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
             <span>{tituloFiltro}</span>
@@ -71,7 +77,7 @@ const HallazgosList = ({
         </div>
 
         <div className="text-right">
-          <span className="text-[10px] text-slate-400 uppercase font-semibold mr-1.5">Subtotal:</span>
+          <span className="text-[10px] text-slate-400 uppercase font-semibold mr-1.5">{subtotalLabel}</span>
           <span className="text-xs font-extrabold text-slate-800 font-mono">
             ${subtotal.toFixed(2)}
           </span>
@@ -84,7 +90,9 @@ const HallazgosList = ({
           const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
           const esFinal = [ESTADO_HALLAZGO.COMPLETADO, ESTADO_HALLAZGO.CANCELADO].includes(st);
           const estadoConf = HALLAZGO_ESTADO_CONFIG[st] ?? HALLAZGO_ESTADO_CONFIG.OTRO;
-          const costo = Number(h.costoAplicado ?? h.costoTratamiento) || 0;
+          const costo = getPrecioHallazgo(h);
+          const esPendiente = !['PROGRAMADO', 'EN_PROGRESO', 'COMPLETADO', 'FINALIZADO', 'CANCELADO'].includes(st);
+          const esProgramado = st === 'PROGRAMADO' || st === 'EN_PROGRESO';
 
           return (
             <div
@@ -102,44 +110,80 @@ const HallazgosList = ({
                   <p className="text-xs font-bold text-slate-800 truncate">
                     {h.nombreTratamiento}
                   </p>
-                  <p className="text-[11px] text-slate-500 font-semibold font-mono">
+                  <p className="text-[11px] text-slate-600 font-semibold font-mono">
                     ${costo.toFixed(2)}
                   </p>
                 </div>
               </div>
 
-              {/* Acciones y selector de estado */}
+              {/* Acciones y control de flujo según estado */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* Botón de acción rápida si está pendiente o programado */}
-                {st === 'PENDIENTE' && (
+                {/* Flujo 1: Presupuestado (PENDIENTE) → Botón para PROGRAMAR para cobrar/realizar */}
+                {esPendiente && (
                   <button
                     type="button"
-                    onClick={() => onCambiarEstado(h.idPlanTratamiento, 'COMPLETADO')}
-                    title="Marcar inmediatamente como Realizado"
-                    className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold
-                               bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200/60 cursor-pointer"
+                    onClick={() => onCambiarEstado(h.idPlanTratamiento, 'PROGRAMADO')}
+                    title="Programar para atender y cobrar en esta consulta"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold
+                               bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors border border-sky-200/60 cursor-pointer shadow-2xs"
                   >
-                    <i className="bi bi-check2" />
-                    <span>Realizar</span>
+                    <i className="bi bi-calendar-plus" />
+                    <span>Programar</span>
                   </button>
                 )}
 
-                {/* Selector de estado oficial */}
-                <select
-                  value={st}
-                  onChange={e => onCambiarEstado(h.idPlanTratamiento, e.target.value)}
-                  disabled={esFinal}
-                  aria-label={`Estado hallazgo pieza ${h.piezaDental}`}
-                  className={`text-[11px] px-2.5 py-1 rounded-xl font-bold border-0 outline-none
-                              cursor-pointer disabled:cursor-default transition-all
-                              focus:ring-2 focus:ring-primary-500 ${estadoConf.tw}`}
-                >
-                  {ESTADOS_HALLAZGO_OPCIONES.map(e => (
-                    <option key={e.value} value={e.value}>{e.label}</option>
-                  ))}
-                </select>
+                {/* Flujo 2: Programado → Botón para REALIZAR (marca COMPLETADO) */}
+                {esProgramado && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onCambiarEstado(h.idPlanTratamiento, 'COMPLETADO')}
+                      title="Marcar procedimiento como Realizado en esta cita"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold
+                                 bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer"
+                    >
+                      <i className="bi bi-check2-circle" />
+                      <span>Realizar</span>
+                    </button>
 
-                {/* Botón eliminar */}
+                    <button
+                      type="button"
+                      onClick={() => onCambiarEstado(h.idPlanTratamiento, 'PENDIENTE')}
+                      title="Desprogramar (regresar a Presupuestado)"
+                      className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-amber-700
+                                 hover:bg-amber-50 rounded-xl transition-colors cursor-pointer"
+                      aria-label="Regresar a presupuestado"
+                    >
+                      <i className="bi bi-arrow-counterclockwise text-xs" />
+                    </button>
+                  </div>
+                )}
+
+                {/* Flujo 3: Realizado → Indicador de conclusión */}
+                {st === 'COMPLETADO' && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                    <i className="bi bi-check-circle-fill text-[10px]" />
+                    <span>Realizado</span>
+                  </span>
+                )}
+
+                {/* Selector de estado oficial para auditoría */}
+                {!esFinal ? (
+                  <select
+                    value={st}
+                    onChange={e => onCambiarEstado(h.idPlanTratamiento, e.target.value)}
+                    aria-label={`Estado hallazgo pieza ${h.piezaDental}`}
+                    className={`text-[11px] px-2.5 py-1 rounded-xl font-bold border-0 outline-none
+                                cursor-pointer transition-all focus:ring-2 focus:ring-primary-500 ${estadoConf.tw}`}
+                  >
+                    {ESTADOS_HALLAZGO_OPCIONES.filter(opt => opt.value !== 'COMPLETADO').map(e => (
+                      <option key={e.value} value={e.value}>{e.label}</option>
+                    ))}
+                    <option value="COMPLETADO">Realizado (Completado)</option>
+                  </select>
+                ) : null}
+
+                {/* Botón eliminar (habilitado solo si no está completado ni cancelado) */}
                 {!esFinal && (
                   <button
                     type="button"
@@ -162,3 +206,4 @@ const HallazgosList = ({
 };
 
 export default HallazgosList;
+

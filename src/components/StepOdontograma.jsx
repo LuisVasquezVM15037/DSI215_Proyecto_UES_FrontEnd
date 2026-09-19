@@ -40,18 +40,24 @@ const StepOdontograma = ({
   const piecesText = selectedTeeth.map(t => t.notations?.fdi || t.id).join(', ');
   const handleCrear = onCrearTratamiento || onCrearNuevoTratamiento;
 
-  // Conteos en tiempo real para cada vista
+  // Conteos en tiempo real para cada vista según reglas de negocio
   const conteos = useMemo(() => {
     const lista = Array.isArray(hallazgos) ? hallazgos : [];
     const total = lista.length;
+
+    // Presupuestados: todos los hallazgos que aún no están en progreso, programados, realizados o cancelados
     const presupuestado = lista.filter(h => {
       const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
-      return st === 'PENDIENTE';
+      return !['PROGRAMADO', 'EN_PROGRESO', 'COMPLETADO', 'FINALIZADO', 'CANCELADO'].includes(st);
     }).length;
+
+    // Programados: procedimientos actualmente seleccionados para realizar y cobrar en esta cita
     const programado = lista.filter(h => {
       const st = String(h.estadoPlan || '').toUpperCase();
       return st === 'PROGRAMADO' || st === 'EN_PROGRESO';
     }).length;
+
+    // Realizados: procedimientos concluidos
     const realizado = lista.filter(h => {
       const st = String(h.estadoPlan || '').toUpperCase();
       return st === 'COMPLETADO' || st === 'FINALIZADO';
@@ -89,17 +95,18 @@ const StepOdontograma = ({
     const conditions = [];
 
     if (activeFilter === 'Hallazgos') {
+      // Vista 1: Reporte general de hallazgos en piezas con diferenciación cromática
       if (pendientes.length > 0) {
         conditions.push({
           label: 'Presupuestado / Pendiente',
           teeth: pendientes,
-          fillColor: '#fee2e2',    // Rojo suave
-          outlineColor: '#ef4444', // Rojo
+          fillColor: '#fef3c7',    // Ámbar suave
+          outlineColor: '#f59e0b', // Ámbar
         });
       }
       if (programados.length > 0) {
         conditions.push({
-          label: 'Programado',
+          label: 'Programado para Cobro',
           teeth: programados,
           fillColor: '#e0f2fe',    // Azul suave
           outlineColor: '#0284c7', // Azul
@@ -114,24 +121,27 @@ const StepOdontograma = ({
         });
       }
     } else if (activeFilter === 'Presupuestado') {
+      // Vista 2: Solo piezas presupuestadas pendientes de atención
       if (pendientes.length > 0) {
         conditions.push({
           label: 'Presupuestado (Pendiente)',
           teeth: pendientes,
-          fillColor: '#fee2e2',
-          outlineColor: '#ef4444',
+          fillColor: '#fef3c7',
+          outlineColor: '#f59e0b',
         });
       }
     } else if (activeFilter === 'Programado') {
+      // Vista 3: Solo procedimientos programados para realizar y cobrar hoy
       if (programados.length > 0) {
         conditions.push({
-          label: 'Programado / En Progreso',
+          label: 'Programado para Atención / Cobro',
           teeth: programados,
           fillColor: '#e0f2fe',
           outlineColor: '#0284c7',
         });
       }
     } else if (activeFilter === 'Realizado') {
+      // Vista 4: Solo procedimientos completados
       if (realizados.length > 0) {
         conditions.push({
           label: 'Realizado (Completado)',
@@ -152,12 +162,19 @@ const StepOdontograma = ({
 
     return hallazgos.filter(h => {
       const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
-      if (activeFilter === 'Presupuestado') return st === 'PENDIENTE';
-      if (activeFilter === 'Programado') return st === 'PROGRAMADO' || st === 'EN_PROGRESO';
-      if (activeFilter === 'Realizado') return st === 'COMPLETADO' || st === 'FINALIZADO';
+      if (activeFilter === 'Presupuestado') {
+        return !['PROGRAMADO', 'EN_PROGRESO', 'COMPLETADO', 'FINALIZADO', 'CANCELADO'].includes(st);
+      }
+      if (activeFilter === 'Programado') {
+        return st === 'PROGRAMADO' || st === 'EN_PROGRESO';
+      }
+      if (activeFilter === 'Realizado') {
+        return st === 'COMPLETADO' || st === 'FINALIZADO';
+      }
       return true;
     });
   }, [hallazgos, activeFilter]);
+
 
   return (
     <div className="flex gap-4 mt-2 flex-1 min-h-0 overflow-hidden animate-fade-in">
@@ -215,7 +232,7 @@ const StepOdontograma = ({
               {activeFilter === 'Hallazgos' && (
                 <>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                    <span className="w-3 h-3 rounded-full bg-red-100 border-2 border-red-500 flex-shrink-0" />
+                    <span className="w-3 h-3 rounded-full bg-amber-100 border-2 border-amber-500 flex-shrink-0" />
                     Presupuestado ({conteos.Presupuestado})
                   </span>
                   <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
@@ -230,7 +247,7 @@ const StepOdontograma = ({
               )}
               {activeFilter === 'Presupuestado' && (
                 <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200/60">
-                  <span className="w-3 h-3 rounded-full bg-red-100 border-2 border-red-500 flex-shrink-0" />
+                  <span className="w-3 h-3 rounded-full bg-amber-100 border-2 border-amber-500 flex-shrink-0" />
                   Mostrando Piezas Presupuestadas ({conteos.Presupuestado})
                 </span>
               )}
