@@ -152,12 +152,12 @@ export const ESTADO_CONFIG = {
 export const getEstadoConfig = (estado) =>
   ESTADO_CONFIG[estado] ?? { tw: 'bg-slate-100 text-slate-500', label: estado ?? '—' };
 
-// ── Mapeo de estado hallazgo  a Tailwind ───────────────────────────────────────
+// ── Mapeo de estado hallazgo a Tailwind ───────────────────────────────────────
 export const HALLAZGO_ESTADO_CONFIG = {
-  PENDIENTE: { tw: 'bg-amber-50   text-amber-700', label: 'Pendiente' },
-  PROGRAMADO: { tw: 'bg-sky-50     text-sky-700', label: 'Programado' },
-  EN_PROGRESO: { tw: 'bg-blue-50    text-blue-700', label: 'En progreso' },
-  COMPLETADO: { tw: 'bg-emerald-50 text-emerald-700', label: 'Completado' },
-  CANCELADO: { tw: 'bg-red-50     text-red-600', label: 'Cancelado' },
-  OTRO: { tw: 'bg-slate-100  text-slate-600', label: 'Otro' },
+  PENDIENTE:   { tw: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/80', label: 'Presupuestado' },
+  PROGRAMADO:  { tw: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200/80', label: 'Programado' },
+  EN_PROGRESO: { tw: 'bg-blue-50 text-blue-800 ring-1 ring-blue-200/80', label: 'En Progreso' },
+  COMPLETADO:  { tw: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80', label: 'Realizado' },
+  CANCELADO:   { tw: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200/80', label: 'Cancelado' },
+  OTRO:        { tw: 'bg-slate-100 text-slate-600', label: 'Otro' },
 };

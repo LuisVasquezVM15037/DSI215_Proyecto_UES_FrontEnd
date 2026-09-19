@@ -6,14 +6,20 @@ import HallazgosList from './HallazgosList';
 import TratamientoSelector from './TratamientoSelector';
 import Button from './ui/Button';
 
-const FILTERS = ['Hallazgos', 'Presupuestado', 'Programado', 'Realizado'];
+const FILTERS = [
+  { id: 'Hallazgos',     label: 'Hallazgos',     icon: 'bi-grid-fill' },
+  { id: 'Presupuestado', label: 'Presupuestado', icon: 'bi-receipt' },
+  { id: 'Programado',    label: 'Programado',    icon: 'bi-calendar-event' },
+  { id: 'Realizado',     label: 'Realizado',     icon: 'bi-check-circle-fill' },
+];
 
 /**
  * Paso 2: Odontograma interactivo digital y registro de hallazgos por pieza dental.
+ * Conectado con filtros clínicos de vista: Hallazgos, Presupuestado, Programado y Realizado.
  */
 const StepOdontograma = ({
   cita,
-  hallazgos,
+  hallazgos = [],
   onCambiarEstado,
   onEliminarHallazgo,
   tratamientos,
@@ -31,20 +37,127 @@ const StepOdontograma = ({
   onContinuar,
 }) => {
   const [activeFilter, setActiveFilter] = useState('Hallazgos');
-  const showHistorial = activeFilter === 'Programado' || activeFilter === 'Realizado';
   const piecesText = selectedTeeth.map(t => t.notations?.fdi || t.id).join(', ');
   const handleCrear = onCrearTratamiento || onCrearNuevoTratamiento;
 
-  // Hallazgos existentes → rojo en el odontograma.
+  // Conteos en tiempo real para cada vista
+  const conteos = useMemo(() => {
+    const lista = Array.isArray(hallazgos) ? hallazgos : [];
+    const total = lista.length;
+    const presupuestado = lista.filter(h => {
+      const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
+      return st === 'PENDIENTE';
+    }).length;
+    const programado = lista.filter(h => {
+      const st = String(h.estadoPlan || '').toUpperCase();
+      return st === 'PROGRAMADO' || st === 'EN_PROGRESO';
+    }).length;
+    const realizado = lista.filter(h => {
+      const st = String(h.estadoPlan || '').toUpperCase();
+      return st === 'COMPLETADO' || st === 'FINALIZADO';
+    }).length;
+
+    return {
+      Hallazgos: total,
+      Presupuestado: presupuestado,
+      Programado: programado,
+      Realizado: realizado,
+    };
+  }, [hallazgos]);
+
+  // Coloreado condicional del Odontograma según el filtro activo y estado de cada pieza
   const teethConditions = useMemo(() => {
     if (!hallazgos?.length) return [];
-    return [{
-      label: 'Hallazgo registrado',
-      teeth: hallazgos.map(h => `teeth-${h.piezaDental}`),
-      fillColor:    '#fee2e2',
-      outlineColor: '#ef4444',
-    }];
-  }, [hallazgos]);
+
+    const pendientes = [];
+    const programados = [];
+    const realizados = [];
+
+    hallazgos.forEach(h => {
+      const toothId = `teeth-${h.piezaDental}`;
+      const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
+
+      if (st === 'COMPLETADO' || st === 'FINALIZADO') {
+        realizados.push(toothId);
+      } else if (st === 'PROGRAMADO' || st === 'EN_PROGRESO') {
+        programados.push(toothId);
+      } else if (st !== 'CANCELADO') {
+        pendientes.push(toothId);
+      }
+    });
+
+    const conditions = [];
+
+    if (activeFilter === 'Hallazgos') {
+      if (pendientes.length > 0) {
+        conditions.push({
+          label: 'Presupuestado / Pendiente',
+          teeth: pendientes,
+          fillColor: '#fee2e2',    // Rojo suave
+          outlineColor: '#ef4444', // Rojo
+        });
+      }
+      if (programados.length > 0) {
+        conditions.push({
+          label: 'Programado',
+          teeth: programados,
+          fillColor: '#e0f2fe',    // Azul suave
+          outlineColor: '#0284c7', // Azul
+        });
+      }
+      if (realizados.length > 0) {
+        conditions.push({
+          label: 'Realizado',
+          teeth: realizados,
+          fillColor: '#d1fae5',    // Verde suave
+          outlineColor: '#10b981', // Verde
+        });
+      }
+    } else if (activeFilter === 'Presupuestado') {
+      if (pendientes.length > 0) {
+        conditions.push({
+          label: 'Presupuestado (Pendiente)',
+          teeth: pendientes,
+          fillColor: '#fee2e2',
+          outlineColor: '#ef4444',
+        });
+      }
+    } else if (activeFilter === 'Programado') {
+      if (programados.length > 0) {
+        conditions.push({
+          label: 'Programado / En Progreso',
+          teeth: programados,
+          fillColor: '#e0f2fe',
+          outlineColor: '#0284c7',
+        });
+      }
+    } else if (activeFilter === 'Realizado') {
+      if (realizados.length > 0) {
+        conditions.push({
+          label: 'Realizado (Completado)',
+          teeth: realizados,
+          fillColor: '#d1fae5',
+          outlineColor: '#10b981',
+        });
+      }
+    }
+
+    return conditions;
+  }, [hallazgos, activeFilter]);
+
+  // Lista filtrada de hallazgos para la tabla inferior
+  const hallazgosFiltrados = useMemo(() => {
+    if (!hallazgos?.length) return [];
+    if (activeFilter === 'Hallazgos') return hallazgos;
+
+    return hallazgos.filter(h => {
+      const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
+      if (activeFilter === 'Presupuestado') return st === 'PENDIENTE';
+      if (activeFilter === 'Programado') return st === 'PROGRAMADO' || st === 'EN_PROGRESO';
+      if (activeFilter === 'Realizado') return st === 'COMPLETADO' || st === 'FINALIZADO';
+      return true;
+    });
+  }, [hallazgos, activeFilter]);
 
   return (
     <div className="flex gap-4 mt-2 flex-1 min-h-0 overflow-hidden animate-fade-in">
@@ -53,77 +166,122 @@ const StepOdontograma = ({
       <div className="flex-1 flex flex-col bg-white rounded-3xl border border-slate-200/80
                       shadow-card overflow-hidden min-w-0">
 
-        {/* Barra de filtros superior */}
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
-          <i className="bi bi-funnel text-slate-400 text-xs" />
-          <span className="text-xs font-bold text-slate-500 mr-1">Filtro de vista:</span>
+        {/* Barra de filtros superior activa */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50 flex-shrink-0 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <i className="bi bi-funnel-fill text-primary-600 text-xs" />
+            <span className="text-xs font-bold text-slate-700">Filtro de vista:</span>
+          </div>
+
           <div className="flex items-center gap-1.5 flex-wrap">
-            {FILTERS.map(f => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setActiveFilter(f)}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all outline-none cursor-pointer
-                            ${activeFilter === f
-                              ? 'bg-primary-600 text-white shadow-xs'
-                              : 'text-slate-600 hover:bg-slate-200/60'}`}
-              >
-                {f}
-              </button>
-            ))}
+            {FILTERS.map(f => {
+              const isSelected = activeFilter === f.id;
+              const count = conteos[f.id] ?? 0;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setActiveFilter(f.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all outline-none cursor-pointer
+                    ${isSelected
+                      ? f.id === 'Realizado'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : f.id === 'Programado'
+                          ? 'bg-primary-600 text-white shadow-xs'
+                          : f.id === 'Presupuestado'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-slate-800 text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-200/70 bg-white border border-slate-200/80'
+                    }`}
+                >
+                  <i className={`bi ${f.icon} text-[11px] ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                  <span>{f.label}</span>
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                    isSelected ? 'bg-white/25 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Contenedor del Odontograma con Scroll (contenedor de bloque estándar para permitir cálculo SVG) */}
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
-          {showHistorial ? (
-            <div className="w-full max-w-md mx-auto my-auto text-center py-10">
-              <div className="w-14 h-14 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-3">
-                <i className="bi bi-clock-history text-2xl" />
-              </div>
-              <h6 className="font-bold text-slate-800 text-base font-display">
-                {activeFilter === 'Realizado' ? 'Historial de Tratamientos Realizados' : 'Tratamientos Programados'}
-              </h6>
-              <p className="text-xs text-slate-400 mt-1">
-                Expediente histórico para {cita.nombreCompletoPaciente}.
-              </p>
-            </div>
-          ) : (
-            <div className="w-full">
-              {/* Leyenda de colores del odontograma */}
-              <div className="flex items-center justify-center gap-5 mb-3 px-2">
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+          <div className="w-full">
+            {/* Leyenda de colores adaptativa según el filtro activo */}
+            <div className="flex items-center justify-center gap-4 sm:gap-6 mb-3 px-2 flex-wrap">
+              {activeFilter === 'Hallazgos' && (
+                <>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                    <span className="w-3 h-3 rounded-full bg-red-100 border-2 border-red-500 flex-shrink-0" />
+                    Presupuestado ({conteos.Presupuestado})
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                    <span className="w-3 h-3 rounded-full bg-sky-100 border-2 border-primary-500 flex-shrink-0" />
+                    Programado ({conteos.Programado})
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+                    <span className="w-3 h-3 rounded-full bg-emerald-100 border-2 border-emerald-500 flex-shrink-0" />
+                    Realizado ({conteos.Realizado})
+                  </span>
+                </>
+              )}
+              {activeFilter === 'Presupuestado' && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 px-3 py-1 rounded-xl border border-amber-200/60">
                   <span className="w-3 h-3 rounded-full bg-red-100 border-2 border-red-500 flex-shrink-0" />
-                  Hallazgo Registrado
+                  Mostrando Piezas Presupuestadas ({conteos.Presupuestado})
                 </span>
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
-                  <span className="w-3 h-3 rounded-full bg-blue-100 border-2 border-primary-500 flex-shrink-0" />
-                  Pieza Seleccionada
+              )}
+              {activeFilter === 'Programado' && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-primary-700 bg-primary-50 px-3 py-1 rounded-xl border border-primary-200/60">
+                  <span className="w-3 h-3 rounded-full bg-sky-100 border-2 border-primary-500 flex-shrink-0" />
+                  Mostrando Piezas Programadas ({conteos.Programado})
                 </span>
-              </div>
-
-              {/* Render del odontograma SVG responsivo */}
-              <div className="odontograma-fit">
-                <Odontogram
-                  onChange={onOdontogramChange}
-                  theme="light"
-                  notation="FDI"
-                  teethConditions={teethConditions}
-                  showLabels={false}
-                />
-              </div>
-
-              <p className="text-center text-[11px] font-semibold text-slate-400 mt-3">
-                Haz clic en una o varias piezas dentales para asignarles tratamiento en el panel derecho.
-              </p>
+              )}
+              {activeFilter === 'Realizado' && (
+                <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200/60">
+                  <span className="w-3 h-3 rounded-full bg-emerald-100 border-2 border-emerald-500 flex-shrink-0" />
+                  Mostrando Tratamientos Realizados ({conteos.Realizado})
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-slate-500">
+                <span className="w-3 h-3 rounded-full bg-blue-50 border-2 border-dashed border-primary-400 flex-shrink-0" />
+                Selección Actual
+              </span>
             </div>
-          )}
+
+            {/* Render del odontograma SVG responsivo */}
+            <div className="odontograma-fit">
+              <Odontogram
+                onChange={onOdontogramChange}
+                theme="light"
+                notation="FDI"
+                teethConditions={teethConditions}
+                showLabels={false}
+              />
+            </div>
+
+            <p className="text-center text-[11px] font-semibold text-slate-400 mt-3">
+              {activeFilter === 'Realizado'
+                ? 'Visualizando tratamientos concluidos en las piezas dentales.'
+                : activeFilter === 'Programado'
+                  ? 'Visualizando tratamientos programados o en progreso.'
+                  : activeFilter === 'Presupuestado'
+                    ? 'Visualizando tratamientos presupuestados pendientes de realizar.'
+                    : 'Haz clic en una o varias piezas dentales para asignarles tratamiento en el panel derecho.'}
+            </p>
+          </div>
         </div>
 
-        {/* Lista de Hallazgos registrados */}
-        <div className="border-t border-slate-100 px-5 py-3 max-h-48 overflow-y-auto bg-slate-50/30">
+        {/* Lista de Hallazgos registrados filtrados dinámicamente */}
+        <div className="border-t border-slate-100 px-5 py-3 max-h-52 overflow-y-auto bg-slate-50/40">
           <HallazgosList
-            hallazgos={hallazgos}
+            hallazgos={hallazgosFiltrados}
+            totalSinFiltrar={hallazgos.length}
+            activeFilter={activeFilter}
+            onResetFilter={() => setActiveFilter('Hallazgos')}
             onCambiarEstado={onCambiarEstado}
             onEliminar={onEliminarHallazgo}
           />

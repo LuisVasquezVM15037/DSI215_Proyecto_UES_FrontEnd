@@ -47,10 +47,10 @@ export const ESTADO_HALLAZGO = {
 
 /** Lista para poblar <select> de estado de hallazgo */
 export const ESTADOS_HALLAZGO_OPCIONES = [
-  { value: 'PENDIENTE',   label: 'Pendiente'   },
-  { value: 'PROGRAMADO',  label: 'Programado'  },
-  { value: 'EN_PROGRESO', label: 'En progreso' },
-  { value: 'COMPLETADO',  label: 'Completado'  },
-  { value: 'CANCELADO',   label: 'Cancelado'   },
-  { value: 'OTRO',        label: 'Otro'        },
+  { value: 'PENDIENTE',   label: 'Presupuestado (Pendiente)' },
+  { value: 'PROGRAMADO',  label: 'Programado' },
+  { value: 'EN_PROGRESO', label: 'En Progreso' },
+  { value: 'COMPLETADO',  label: 'Realizado (Completado)' },
+  { value: 'CANCELADO',   label: 'Cancelado' },
+  { value: 'OTRO',        label: 'Otro' },
 ];
