@@ -3,29 +3,12 @@ import { usePatientManagement } from '../hooks/usePatientManagement';
 import SearchInput from '../components/ui/SearchInput';
 import Button from '../components/ui/Button';
 import AvatarBadge from '../components/ui/AvatarBadge';
+import Input from '../components/ui/Input';
+import Textarea from '../components/ui/Textarea';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
-import { normalizarFechaNacimiento } from '../utils/cita.utils';
-import 'bootstrap-icons/font/bootstrap-icons.css';
-
-const FieldLabel = ({ children, required }) => (
-  <label className="block text-xs font-medium text-slate-600 mb-1">
-    {children}{required && <span className="text-red-500 ml-0.5">*</span>}
-  </label>
-);
-
-const Input = ({ ...props }) => (
-  <input
-    {...props}
-    className={`w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white
-                text-slate-800 placeholder-slate-400 outline-none
-                focus:ring-2 focus:ring-primary-500 focus:border-transparent
-                transition-all ${props.className ?? ''}`}
-  />
-);
 
 /**
- * Página de gestión de pacientes — layout maestro/detalle.
- * Lógica en usePatientManagement.
+ * Página de gestión de expedientes clínicos de pacientes (Patrón Maestro-Detalle).
  */
 const PatientManagementPage = () => {
   const {
@@ -36,87 +19,107 @@ const PatientManagementPage = () => {
   } = usePatientManagement();
 
   return (
-    <div className="flex h-full bg-surface overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full bg-surface overflow-hidden">
 
-      {/* ── LISTA (izquierda) ──────────────────────────────────────────── */}
-      <aside className="w-80 flex-shrink-0 flex flex-col border-r border-slate-200 bg-white">
-        {/* Header */}
-        <div className="px-4 pt-5 pb-3 border-b border-slate-100 flex-shrink-0">
-          <div className="flex items-center justify-between mb-3">
-            <h5 className="font-bold text-slate-800 text-sm">Expedientes</h5>
+      {/* ── LISTA MAESTRA (Izquierda) ───────────────────────────────────────── */}
+      <aside className="w-full md:w-84 lg:w-96 flex-shrink-0 flex flex-col border-r border-slate-200/80 bg-white">
+        
+        {/* Cabecera del listado */}
+        <div className="p-4 border-b border-slate-100 flex-shrink-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h5 className="font-extrabold text-slate-800 text-base font-display">Expedientes</h5>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">
+                {patients.length}
+              </span>
+            </div>
             <Button
               size="xs"
               onClick={handleCancel}
-              icon={<i className="bi bi-plus-lg" />}
+              icon={<i className="bi bi-person-plus-fill" />}
             >
-              Nuevo
+              Nuevo Paciente
             </Button>
           </div>
+
           <SearchInput
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
             onClear={() => setSearchTerm('')}
-            placeholder="Buscar paciente..."
+            placeholder="Buscar por nombre o DUI..."
           />
         </div>
 
-        {/* Lista de pacientes */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+        {/* Listado scrolleable de pacientes */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
           {loading && patients.length === 0 && (
-            <LoadingSpinner text="Cargando expedientes..." />
+            <LoadingSpinner text="Consultando expedientes..." />
           )}
+
           {!loading && patients.length === 0 && (
             <EmptyState
               icon="bi-people"
-              title="No se encontraron pacientes"
-              description={searchTerm ? `Sin resultados para "${searchTerm}".` : 'Registra el primer paciente.'}
+              title="No hay pacientes registrados"
+              description={searchTerm ? `Sin resultados para "${searchTerm}".` : 'Registra el primer expediente clínico.'}
             />
           )}
+
           {patients.map(p => {
             const initials = `${p.nombrePaciente?.[0] ?? ''}${p.apellidoPaciente?.[0] ?? ''}`;
             const isSelected = selectedId === p.idPaciente;
+
             return (
               <button
                 key={p.idPaciente}
                 type="button"
                 onClick={() => handleSelect(p)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left
-                            transition-all
+                className={`w-full flex items-center gap-3.5 p-3 rounded-2xl text-left
+                            transition-all duration-150 outline-none cursor-pointer
                             ${isSelected
-                              ? 'bg-primary-600 text-white shadow-sm shadow-primary-200/50'
-                              : 'hover:bg-slate-50 text-slate-700'}`}
+                              ? 'bg-gradient-to-r from-primary-600 to-primary-500 text-white shadow-md shadow-primary-500/20'
+                              : 'hover:bg-slate-50 text-slate-700 border border-transparent hover:border-slate-100'}`}
               >
-                <AvatarBadge initials={initials} size="sm"
-                  className={isSelected ? 'bg-white/20' : ''} />
+                <AvatarBadge
+                  initials={initials}
+                  size="sm"
+                  className={isSelected ? 'ring-white/40' : ''}
+                />
                 <div className="min-w-0 flex-1">
-                  <p className={`text-sm font-semibold truncate leading-tight
+                  <p className={`text-sm font-bold truncate leading-snug
                                  ${isSelected ? 'text-white' : 'text-slate-800'}`}>
                     {p.nombrePaciente} {p.apellidoPaciente}
                   </p>
-                  <p className={`text-xs truncate ${isSelected ? 'text-primary-200' : 'text-slate-400'}`}>
-                    {p.numeroIdentidadPaciente}
+                  <p className={`text-xs truncate font-medium mt-0.5
+                                 ${isSelected ? 'text-primary-100' : 'text-slate-400'}`}>
+                    DUI: {p.numeroIdentidadPaciente || 'Sin documento'}
                   </p>
                 </div>
+                <i className={`bi bi-chevron-right text-xs ${isSelected ? 'text-white' : 'text-slate-300'}`} />
               </button>
             );
           })}
         </div>
       </aside>
 
-      {/* ── FORMULARIO / DETALLE (derecha) ─────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto">
+      {/* ── FORMULARIO / EXPEDIENTE DETALLE (Derecha) ───────────────────────── */}
+      <main className="flex-1 overflow-y-auto p-6 md:p-8 bg-surface">
+        <div className="max-w-3xl mx-auto space-y-6">
 
-          {/* Header del formulario */}
-          <div className="flex items-center justify-between mb-6">
+          {/* Encabezado del detalle */}
+          <div className="flex items-center justify-between">
             <div>
-              <h4 className="font-bold text-slate-800">
-                {isEditing ? 'Editar Expediente' : 'Nuevo Paciente'}
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-50 text-primary-700 text-[11px] font-bold mb-1">
+                <i className="bi bi-file-earmark-medical" />
+                {isEditing ? 'Expediente Activo' : 'Nuevo Registro'}
+              </div>
+              <h4 className="text-xl font-extrabold text-slate-800 font-display">
+                {isEditing ? `${formData.nombrePaciente} ${formData.apellidoPaciente}` : 'Registro de Paciente'}
               </h4>
               <p className="text-xs text-slate-400 mt-0.5">
-                {isEditing ? 'Modifica los datos del paciente seleccionado.' : 'Completa los datos para registrar al paciente.'}
+                {isEditing ? 'Consulta o actualiza los datos clínicos del expediente.' : 'Ingresa la información básica y médica del paciente.'}
               </p>
             </div>
+
             {isEditing && (
               <Button
                 variant="danger"
@@ -129,111 +132,118 @@ const PatientManagementPage = () => {
             )}
           </div>
 
-          {/* Formulario */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-6 space-y-5">
+          {/* Tarjeta de Formulario estructurada */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 md:p-8 space-y-6">
 
-            {/* Nombre y apellido */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <FieldLabel required>Nombre</FieldLabel>
+            {/* Sección 1: Identificación básica */}
+            <div className="space-y-4">
+              <h6 className="text-xs font-bold text-primary-700 uppercase tracking-wider flex items-center gap-2">
+                <i className="bi bi-person-vcard text-sm" />
+                1. Datos de Identificación
+              </h6>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
+                  label="Nombre"
+                  required
                   name="nombrePaciente"
-                  placeholder="Juan"
+                  placeholder="ej. Juan Carlos"
                   value={formData.nombrePaciente}
                   onChange={handleChange}
                 />
-              </div>
-              <div>
-                <FieldLabel required>Apellido</FieldLabel>
                 <Input
+                  label="Apellido"
+                  required
                   name="apellidoPaciente"
-                  placeholder="Pérez"
+                  placeholder="ej. Pérez Gómez"
                   value={formData.apellidoPaciente}
                   onChange={handleChange}
                 />
               </div>
-            </div>
 
-            {/* DUI y teléfono */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <FieldLabel required>DUI / Número de Identidad</FieldLabel>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
+                  label="DUI / Documento de Identidad"
+                  required
                   name="numeroIdentidadPaciente"
                   placeholder="00000000-0"
                   value={formData.numeroIdentidadPaciente}
                   onChange={handleChange}
                 />
-              </div>
-              <div>
-                <FieldLabel>Teléfono</FieldLabel>
-                <Input
-                  name="telefonoPaciente"
-                  placeholder="7777-7777"
-                  value={formData.telefonoPaciente}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            {/* Fecha de nacimiento y email */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <FieldLabel>Fecha de Nacimiento</FieldLabel>
                 <Input
                   type="date"
+                  label="Fecha de Nacimiento"
                   name="fechaNacimientoPaciente"
                   value={formData.fechaNacimientoPaciente}
                   onChange={handleChange}
                 />
               </div>
-              <div>
-                <FieldLabel>Correo Electrónico</FieldLabel>
+            </div>
+
+            <div className="border-t border-slate-100 pt-5 space-y-4">
+              <h6 className="text-xs font-bold text-primary-700 uppercase tracking-wider flex items-center gap-2">
+                <i className="bi bi-telephone text-sm" />
+                2. Contacto y Comunicación
+              </h6>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Teléfono Principal"
+                  name="telefonoPaciente"
+                  placeholder="7000-0000"
+                  icon={<i className="bi bi-phone" />}
+                  value={formData.telefonoPaciente}
+                  onChange={handleChange}
+                />
                 <Input
                   type="email"
+                  label="Correo Electrónico"
                   name="emailPaciente"
-                  placeholder="correo@ejemplo.com"
+                  placeholder="paciente@correo.com"
+                  icon={<i className="bi bi-envelope" />}
                   value={formData.emailPaciente}
                   onChange={handleChange}
                 />
               </div>
-            </div>
 
-            {/* Contacto de emergencia */}
-            <div>
-              <FieldLabel>Contacto de Emergencia</FieldLabel>
               <Input
+                label="Contacto de Emergencia"
                 name="contactoEmergencia"
-                placeholder="Nombre y teléfono del contacto"
+                placeholder="Nombre completo y teléfono de familiar o tutor"
+                icon={<i className="bi bi-shield-exclamation" />}
                 value={formData.contactoEmergencia}
                 onChange={handleChange}
               />
             </div>
 
-            {/* Alergias */}
-            <div>
-              <FieldLabel>Alergias / Notas médicas</FieldLabel>
-              <textarea
+            {/* Sección 3: Alergias y notas médicas */}
+            <div className="border-t border-slate-100 pt-5 space-y-4">
+              <h6 className="text-xs font-bold text-red-600 uppercase tracking-wider flex items-center gap-2">
+                <i className="bi bi-exclamation-octagon text-sm" />
+                3. Alertas Médicas y Alergias
+              </h6>
+
+              <Textarea
                 name="alergias"
+                label="Alergias Conocidas o Condiciones Preexistentes"
                 rows={3}
-                placeholder="Alergias conocidas, condiciones médicas relevantes..."
+                placeholder="Indicar si el paciente padece de hipertensión, diabetes, alergia a la penicilina, anestésicos, etc..."
                 value={formData.alergias}
                 onChange={handleChange}
-                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white
-                           text-slate-800 placeholder-slate-400 outline-none resize-none
-                           focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                helperText="Esta información se mostrará en los avisos prioritarios al iniciar la consulta odontológica."
               />
             </div>
 
-            {/* Acciones */}
-            <div className="flex gap-3 pt-2">
+            {/* Acciones de envío */}
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
               <Button variant="secondary" onClick={handleCancel} disabled={loading}>
                 Cancelar
               </Button>
-              <Button fullWidth onClick={handleSubmit} loading={loading}>
-                {isEditing ? 'Guardar Cambios' : 'Registrar Paciente'}
+              <Button onClick={handleSubmit} loading={loading}>
+                {isEditing ? 'Guardar Cambios' : 'Registrar Expediente'}
               </Button>
             </div>
+
           </div>
         </div>
       </main>

@@ -2,12 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginService, saveSession } from '../services/auth.service';
 import Button from '../components/ui/Button';
-import 'bootstrap-icons/font/bootstrap-icons.css';
 
 /**
- * Página de login.
- * La lógica de autenticación vive en auth.service.js.
- * Este componente solo maneja el estado del formulario y la navegación.
+ * Página de login moderna con panel de marca clínico e interacciones fluidas.
  */
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -20,7 +17,7 @@ const LoginPage = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (!identifier.trim() || !password) {
-      setError('Completa todos los campos.');
+      setError('Por favor, ingresa tu usuario y contraseña.');
       return;
     }
     setError('');
@@ -37,154 +34,197 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50">
 
-      {/* ── Panel izquierdo: branding ────────────────────────────────────── */}
-      <div className="hidden lg:flex w-[45%] flex-col justify-between p-12
-                      bg-gradient-to-br from-primary-800 via-primary-700 to-dental-600
+      {/* ── Panel izquierdo: Branding de alto nivel ────────────────────────── */}
+      <div className="hidden lg:flex w-[48%] flex-col justify-between p-12
+                      bg-gradient-to-br from-slate-900 via-primary-950 to-dental-900
                       text-white relative overflow-hidden">
 
-        {/* Decoración de fondo */}
+        {/* Círculos decorativos de fondo con desenfoque suave */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-white/5 rounded-full" />
-          <div className="absolute bottom-12 -left-16 w-64 h-64 bg-white/5 rounded-full" />
-          <div className="absolute top-1/2 right-8 w-32 h-32 bg-dental-400/20 rounded-full" />
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary-500/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-12 -left-16 w-80 h-80 bg-dental-400/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 right-12 w-64 h-64 bg-primary-400/5 rounded-full blur-2xl" />
         </div>
 
+        {/* Encabezado del panel de marca */}
         <div className="relative z-10">
-          <div className="text-3xl font-black tracking-tight mb-2">DentalCare.</div>
-          <div className="w-8 h-0.5 bg-dental-400 rounded-full" />
-        </div>
-
-        <div className="relative z-10">
-          <h2 className="text-3xl font-bold leading-tight mb-4">
-            Sistema integral de<br />gestión clínica y<br />
-            <span className="text-dental-300">odontograma digital.</span>
-          </h2>
-          <p className="text-primary-200 text-sm leading-relaxed max-w-xs">
-            Gestiona pacientes, agenda citas y registra consultas con un flujo
-            clínico completo desde un solo lugar.
-          </p>
-        </div>
-
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
-            <i className="bi bi-shield-check text-dental-300 text-sm" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-primary-500 to-dental-400
+                            flex items-center justify-center text-white font-extrabold text-base shadow-lg shadow-primary-500/25">
+              DC
+            </div>
+            <div>
+              <span className="text-2xl font-extrabold tracking-tight font-display text-white">DentalCare</span>
+              <span className="text-xs text-dental-300 font-semibold ml-1.5 px-2 py-0.5 rounded-full bg-dental-900/60 border border-dental-500/30">
+                v2.0
+              </span>
+            </div>
           </div>
-          <span className="text-xs text-primary-300">Diseño de Sistemas II - Universidad de El Salvador <br /> Derechos Reservados / Ciclo 02-2026</span>
+        </div>
+
+        {/* Sección central con valor del producto */}
+        <div className="relative z-10 max-w-md">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 text-xs font-semibold text-dental-200 mb-6 backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-dental-400 animate-pulse" />
+            Gestión Odontológica Inteligente
+          </div>
+
+          <h1 className="text-4xl font-extrabold leading-tight tracking-tight mb-4 font-display">
+            Precisión clínica y control total para tu clínica dental.
+          </h1>
+
+          <p className="text-slate-300 text-sm leading-relaxed mb-8">
+            Expedientes digitales, odontograma normado en tiempo real, prescripción electrónica y control de agenda centralizado.
+          </p>
+
+          {/* Tarjetas de beneficios */}
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <i className="bi bi-diagram-3 text-dental-300 text-lg block mb-1" />
+              <p className="font-bold text-white">Odontograma FDI</p>
+              <p className="text-slate-400 text-[11px] mt-0.5">Seguimiento por pieza</p>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+              <i className="bi bi-calendar-check text-primary-300 text-lg block mb-1" />
+              <p className="font-bold text-white">Agenda en Tiempo Real</p>
+              <p className="text-slate-400 text-[11px] mt-0.5">Citas y reprogramación</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer institucional */}
+        <div className="relative z-10 flex items-center gap-3 pt-6 border-t border-white/10">
+          <div className="w-8 h-8 bg-white/10 rounded-xl flex items-center justify-center text-dental-300">
+            <i className="bi bi-mortarboard" />
+          </div>
+          <p className="text-xs text-slate-400 leading-tight">
+            Universidad de El Salvador · Diseño de Sistemas II<br />
+            <span className="text-slate-500">Proyecto de Cátedra — Ciclo 02-2026</span>
+          </p>
         </div>
       </div>
 
-      {/* ── Panel derecho: formulario ────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center bg-slate-50 p-6">
-        <div className="w-full max-w-sm">
+      {/* ── Panel derecho: Formulario de inicio de sesión ──────────────────── */}
+      <div className="flex-1 flex items-center justify-center p-6 md:p-12 overflow-y-auto">
+        <div className="w-full max-w-md">
 
-          {/* Logo móvil */}
-          <div className="lg:hidden text-center mb-8">
-            <span className="text-2xl font-black text-primary-700">DentalCare.</span>
-          </div>
+          {/* Tarjeta contenedor */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xl p-8 sm:p-10">
 
-          <div className="text-center mb-8">  
-            <img
-            src="/img/dentalcare.png"
-            alt="DentalCare Clínica Odontológica"
-            className="w-52 mx-auto mb-4"         // Se agrega estas lineas de código para agregar el logo de la clinica
-            style = {{mixBlendMode: 'multiply'}}
-             />
-            <h2 className="text-2xl font-bold text-slate-800">Bienvenido de nuevo</h2>
-            <p className="text-slate-500 text-sm mt-1">Ingresa tus credenciales para acceder al panel.</p>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200
-                            rounded-xl text-sm text-red-700 mb-5">
-              <i className="bi bi-exclamation-triangle-fill flex-shrink-0" />
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} noValidate className="space-y-4">
-
-            {/* Usuario / Email */}
-            <div>
-              <label htmlFor="identifier"
-                className="block text-xs font-medium text-slate-600 mb-1">
-                Correo electrónico o Usuario
-              </label>
-              <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-slate-200
-                              rounded-xl focus-within:ring-2 focus-within:ring-primary-500
-                              focus-within:border-transparent transition-all">
-                <i className="bi bi-person text-slate-400 flex-shrink-0" />
-                <input
-                  id="identifier"
-                  type="text"
-                  autoComplete="username"
-                  placeholder="ejemplo@dentalcare.com"
-                  value={identifier}
-                  onChange={e => setIdentifier(e.target.value)}
-                  disabled={loading}
-                  required
-                  className="flex-1 text-sm bg-transparent outline-none text-slate-800
-                             placeholder-slate-400 disabled:opacity-60"
-                />
+            {/* Logo y saludo */}
+            <div className="text-center mb-8">
+              <div className="w-14 h-14 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto mb-4 border border-primary-100 shadow-xs">
+                <i className="bi bi-person-lock text-2xl" />
               </div>
+              <h2 className="text-2xl font-bold text-slate-800 font-display">Bienvenido de nuevo</h2>
+              <p className="text-slate-500 text-xs mt-1.5">
+                Ingresa tus credenciales para acceder a la plataforma clínica
+              </p>
             </div>
 
-            {/* Contraseña */}
-            <div>
-              <label htmlFor="password"
-                className="block text-xs font-medium text-slate-600 mb-1">
-                Contraseña
-              </label>
-              <div className="flex items-center gap-3 px-3 py-2.5 bg-white border border-slate-200
-                              rounded-xl focus-within:ring-2 focus-within:ring-primary-500
-                              focus-within:border-transparent transition-all">
-                <i className="bi bi-lock text-slate-400 flex-shrink-0" />
-                <input
-                  id="password"
-                  type={showPwd ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="Tu contraseña"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  disabled={loading}
-                  required
-                  className="flex-1 text-sm bg-transparent outline-none text-slate-800
-                             placeholder-slate-400 disabled:opacity-60"
-                />
+            {/* Alerta de error */}
+            {error && (
+              <div className="flex items-center gap-2.5 p-3.5 bg-red-50 border border-red-200
+                              rounded-2xl text-xs text-red-700 font-medium mb-6 animate-fade-in">
+                <i className="bi bi-exclamation-triangle-fill flex-shrink-0 text-sm" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleLogin} noValidate className="space-y-4.5">
+
+              {/* Input Identificador / Usuario */}
+              <div>
+                <label htmlFor="identifier" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Correo electrónico o Usuario
+                </label>
+                <div className="flex items-center gap-3 px-3.5 py-2.5 bg-white border border-slate-200
+                                rounded-xl hover:border-slate-300 focus-within:border-primary-500
+                                focus-within:ring-4 focus-within:ring-primary-500/10 transition-all duration-200 shadow-xs">
+                  <i className="bi bi-person text-slate-400 flex-shrink-0" />
+                  <input
+                    id="identifier"
+                    type="text"
+                    autoComplete="username"
+                    placeholder="usuario@dentalcare.com"
+                    value={identifier}
+                    onChange={e => setIdentifier(e.target.value)}
+                    disabled={loading}
+                    required
+                    className="flex-1 text-sm bg-transparent outline-none text-slate-800
+                               placeholder-slate-400 disabled:opacity-60"
+                  />
+                </div>
+              </div>
+
+              {/* Input Contraseña */}
+              <div>
+                <label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Contraseña
+                </label>
+                <div className="flex items-center gap-3 px-3.5 py-2.5 bg-white border border-slate-200
+                                rounded-xl hover:border-slate-300 focus-within:border-primary-500
+                                focus-within:ring-4 focus-within:ring-primary-500/10 transition-all duration-200 shadow-xs">
+                  <i className="bi bi-lock text-slate-400 flex-shrink-0" />
+                  <input
+                    id="password"
+                    type={showPwd ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    disabled={loading}
+                    required
+                    className="flex-1 text-sm bg-transparent outline-none text-slate-800
+                               placeholder-slate-400 disabled:opacity-60"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(p => !p)}
+                    aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+                  >
+                    <i className={`bi bi-eye${showPwd ? '-slash' : ''} text-sm`} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Recordarme y Olvido de contraseña */}
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500/20 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-500 font-medium">Recordar sesión</span>
+                </label>
                 <button
                   type="button"
-                  onClick={() => setShowPwd(p => !p)}
-                  aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0"
+                  className="text-xs font-semibold text-primary-600 hover:text-primary-800 transition-colors"
                 >
-                  <i className={`bi bi-eye${showPwd ? '-slash' : ''} text-sm`} />
+                  ¿Olvidaste tu contraseña?
                 </button>
               </div>
-            </div>
 
-            {/* Recordarme / Olvidé */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-3.5 h-3.5 accent-primary-600" />
-                <span className="text-xs text-slate-500">Recordarme</span>
-              </label>
-              <button
-                type="button"
-                className="text-xs text-primary-600 hover:text-primary-800 transition-colors"
-              >
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
-
-            <Button type="submit" fullWidth loading={loading} size="lg">
-              Ingresar al Sistema
-            </Button>
-          </form>
+              {/* Botón de Ingreso */}
+              <div className="pt-2">
+                <Button
+                  type="submit"
+                  fullWidth
+                  loading={loading}
+                  size="lg"
+                  iconRight={<i className="bi bi-arrow-right" />}
+                >
+                  Ingresar al Sistema
+                </Button>
+              </div>
+            </form>
+          </div>
 
           <p className="text-center text-xs text-slate-400 mt-6">
-            ¿Problemas de acceso? Contacta al administrador del sistema.
+            ¿Problemas para acceder? Contacta al administrador del sistema.
           </p>
         </div>
       </div>

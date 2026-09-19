@@ -2,87 +2,82 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { getUserName, getUserRole, clearSession } from '../services/auth.service';
 import { confirmDialog } from '../utils/alert.utils';
-import 'bootstrap-icons/font/bootstrap-icons.css';
 import { ROLES, normalizeRole } from '../constants/roles.constants';
 
-//Este es el componente de Layout principal que envuelve toda la aplicación. Contiene la estructura de la interfaz, incluyendo la barra lateral de navegación, el encabezado y el área de contenido donde se renderizan las rutas hijas mediante <Outlet />. También maneja la lógica del menú de usuario y el cierre de sesión.
-
-// Configuración de rutas para la barra lateral, cada una con su ícono y etiqueta.
+/**
+ * Configuración central de rutas para la barra lateral con roles autorizados e iconos.
+ */
 const NAV_ITEMS = [
   {
-    // Para que todos los roles puedan ver el dashboard
     path:  '/dashboard',
-    icon:  'bi-house',
+    icon:  'bi-grid-1x2',
     label: 'Inicio',
   },
   {
-    // Para que solo el admin y la secretaria puedan ver la agenda
     path:  '/agenda',
-    icon:  'bi-calendar3',
-    label: 'Agenda',    
+    icon:  'bi-calendar-check',
+    label: 'Agenda',
     allowedRoles: [ROLES.ADMIN, ROLES.RECEPCIONISTA, ROLES.GERENTE],
   },
   {
-     // Para que solo el admin y la secretaria puedan ver los pacientes
-    path:         '/pacientes',
-    icon:         'bi-people',
-    label:        'Pacientes',
-    allowedRoles: [ROLES.ADMIN, ROLES.rECEPCIONISTA, ROLES.GERENTE],
+    path:  '/pacientes',
+    icon:  'bi-people',
+    label: 'Pacientes',
+    allowedRoles: [ROLES.ADMIN, ROLES.RECEPCIONISTA, ROLES.GERENTE],
   },
   {
-     // Para que solo el admin y odontologo puedan ver las consultas
-    path:         '/consulta',
-    icon:         'bi-heart-pulse',
-    label:        'Consultas',
+    path:  '/consulta',
+    icon:  'bi-heart-pulse',
+    label: 'Consultas',
     allowedRoles: [ROLES.ADMIN, ROLES.ODONTOLOGO],
   },
   {
-     // Para que solo el admin pueda ver los usuarios
-    path:         '/usuarios',
-    icon:         'bi-person-badge',
-    label:        'Usuarios',
-    allowedRoles: [ROLES.ADMIN],
+    path:  '/usuarios',
+    icon:  'bi-person-badge',
+    label: 'Usuarios',
+    allowedRoles: [ROLES.ADMIN, ROLES.GERENTE],
   },
   {
-     // Para que solo el admin pueda ver la revision de los accesos
-    path:         '/revisar-accesos',
-    icon:         'bi-shield-check',
-    label:        'Revisar Accesos',
+    path:  '/revisar-accesos',
+    icon:  'bi-shield-check',
+    label: 'Revisar Accesos',
     allowedRoles: [ROLES.ADMIN],
   },
 ];
 
-// El componente Layout es el contenedor principal de la aplicación, que incluye la barra lateral de navegación, el encabezado y el área de contenido donde se renderizan las rutas hijas.
+/**
+ * Layout principal moderno con barra lateral interactiva y encabezado clínico.
+ */
 const Layout = () => {
-  const navigate  = useNavigate(); // Hook de React Router para programáticamente cambiar de ruta.
-  const location  = useLocation();// Hook de React Router para obtener información sobre la ruta actual, útil para determinar qué enlace de navegación está activo.
-  const [menuOpen, setMenuOpen] = useState(false); // Estado local para controlar si el menú de usuario (dropdown) está abierto o cerrado.
-  const menuRef   = useRef(null); // Referencia al contenedor del menú de usuario, utilizada para detectar clics fuera del menú y cerrarlo automáticamente.
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef   = useRef(null);
 
-// Memoizado: localStorage no cambia durante la sesión
-const userName = useMemo(() => getUserName(), []);
-// Normaliza el rol obtenido del storage para comparaciones consistentes en el filtro de la sidebar del layout
-const userRole = useMemo(() => normalizeRole(getUserRole()), []);
+  const userName = useMemo(() => getUserName(), []);
+  const userRole = useMemo(() => normalizeRole(getUserRole()), []);
 
-
-
-// PBI REVISAR ACCESOS
-  // Las iniciales se generan tomando la primera letra de cada palabra en el nombre del usuario, convirtiéndolas a mayúsculas y limitando a las primeras dos letras. Esto se muestra en el avatar del menú de usuario.
   const initials = useMemo(() =>
     userName.split(' ').map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join(''),
     [userName],
   );
-//
+
+  const todayFormatted = useMemo(() => {
+    return new Date().toLocaleDateString('es-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+    });
+  }, []);
+
   useEffect(() => {
     const handler = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); // Si el clic es fuera del menú, se cierra el menú estableciendo `menuOpen` a false.
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
     };
-    // Se agrega un event listener al documento para detectar clics en cualquier parte de la página. Si el clic ocurre fuera del menú de usuario, se cierra el menú.
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // La función `handleLogout` se encarga de manejar el proceso de cierre de sesión. Primero, cierra el menú de usuario. Luego, muestra un cuadro de diálogo de confirmación para asegurarse de que el usuario desea cerrar sesión. Si el usuario confirma, se limpia la sesión (eliminando tokens o datos relacionados) y se redirige al usuario a la página de inicio (ruta '/').
   const handleLogout = async () => {
     setMenuOpen(false);
     const confirmed = await confirmDialog('¿Cerrar sesión?', '¿Estás seguro que deseas salir del sistema?', 'Sí, salir');
@@ -91,149 +86,185 @@ const userRole = useMemo(() => normalizeRole(getUserRole()), []);
     navigate('/');
   };
 
-  // El componente retorna la estructura JSX que define la interfaz de usuario. La barra lateral de navegación se construye iterando sobre `NAV_ITEMS` para crear botones de navegación. El encabezado muestra el nombre del sistema y un menú de usuario con opciones. El área principal utiliza `<Outlet />` para renderizar las rutas hijas según la ruta activa.
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-surface">
 
       {/* ── SIDEBAR ─────────────────────────────────────────────────────────── */}
-      <aside className="flex flex-col w-[60px] bg-white border-r border-slate-100
-                        shadow-card flex-shrink-0 z-20">
-        {/* El Logo de la aplicación */}
-        <button
-          onClick={() => navigate('/dashboard')} // Al hacer clic, se redirige a la página de inicio (ruta '/dashboard').
-          aria-label="Ir al inicio"
-          className="h-14 flex items-center justify-center text-primary-600 font-black
-                     text-lg tracking-tight hover:bg-primary-50 transition-colors
-                     border-b border-slate-100"
-        >
-          {/*El logo de la aplicación es un botón que redirige a la página de inicio (ruta '/dashboar */}
-          DC
-        </button>
+      <aside className="flex flex-col w-[72px] bg-white border-r border-slate-200/80
+                        shadow-card flex-shrink-0 z-20 transition-all">
+        {/* Logo de la aplicación */}
+        <div className="h-16 flex items-center justify-center border-b border-slate-100">
+          <button
+            onClick={() => navigate('/dashboard')}
+            aria-label="Ir al inicio"
+            title="DentalCare ERP"
+            className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-primary-600 via-primary-500 to-dental-400
+                       text-white font-extrabold text-sm tracking-tighter flex items-center justify-center
+                       shadow-md shadow-primary-500/20 hover:scale-105 active:scale-95 transition-all"
+          >
+            DC
+          </button>
+        </div>
 
-        {/* Nav */}
-        <nav className="flex-1 flex flex-col items-center gap-1.5 py-3" aria-label="Navegación principal">
-          {/* Se itera sobre cada elemento de `NAV_ITEMS`, filtrando según el rol del usuario, para crear un botón de navegación en la barra lateral. Se determina si el enlace está activo comparando la ruta actual con la ruta del enlace. Si el enlace está activo, se aplican estilos diferentes para resaltarlo visualmente. */}
+        {/* Navegación vertical */}
+        <nav className="flex-1 flex flex-col items-center gap-2 py-4" aria-label="Navegación principal">
           {NAV_ITEMS
-            .filter(({ allowedRoles }) =>
-             !allowedRoles || allowedRoles.includes(userRole)
-              )
-             .map(({ path, icon, label }) => {
-            const isActive = location.pathname === path ||
-              (path !== '/dashboard' && location.pathname.startsWith(path));
-            return (
-              // Cada botón de navegación tiene un ícono y una etiqueta, y al hacer clic se navega a la ruta correspondiente. El botón también tiene atributos de accesibilidad como `aria-label` y `aria-current` para mejorar la experiencia de usuarios con tecnologías asistivas.
-              <button
-                key={path}
-                onClick={() => navigate(path)}
-                title={label}
-                aria-label={label}
-                aria-current={isActive ? 'page' : undefined}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg
-                            transition-all duration-150 focus-visible:outline-2
-                            focus-visible:outline-primary-500
-                            ${isActive // Si el enlace está activo, se aplican estilos para resaltarlo (fondo primario, texto blanco y sombra). Si no está activo, se aplican estilos de texto gris con efectos hover para indicar que es interactivo.
-                              ? 'bg-primary-600 text-white shadow-md shadow-primary-200/50'
-                              : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
-                            }`}
-              >
-                {/*El ícono se muestra utilizando la clase de Bootstrap Icons correspondiente al valor de `icon` definido en `NAV_ITEMS`. */}
-                <i className={`bi ${icon}`} /> 
-              </button>
-            );
-          })}
+            .filter(({ allowedRoles }) => !allowedRoles || allowedRoles.includes(userRole))
+            .map(({ path, icon, label }) => {
+              const isActive = location.pathname === path ||
+                (path !== '/dashboard' && location.pathname.startsWith(path));
+
+              return (
+                <div key={path} className="relative group">
+                  <button
+                    onClick={() => navigate(path)}
+                    aria-label={label}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`
+                      w-11 h-11 rounded-2xl flex items-center justify-center text-lg
+                      transition-all duration-200 outline-none
+                      ${isActive
+                        ? 'bg-gradient-to-tr from-primary-600 to-primary-500 text-white shadow-md shadow-primary-500/30 scale-105'
+                        : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100/90 active:scale-95'
+                      }
+                    `}
+                  >
+                    <i className={`bi ${icon}`} />
+                  </button>
+
+                  {/* Tooltip flotante a la derecha */}
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1.5
+                                  bg-slate-800 text-white text-xs font-semibold rounded-lg
+                                  opacity-0 pointer-events-none group-hover:opacity-100
+                                  transition-opacity duration-150 z-50 whitespace-nowrap shadow-lg">
+                    {label}
+                  </div>
+                </div>
+              );
+            })}
         </nav>
 
-        {/* Footer */}
-        {/*El botón de configuración en el pie de la barra lateral, que actualmente no tiene funcionalidad asignada pero está preparado para futuras implementaciones. Tiene estilos que cambian al pasar el mouse para indicar que es interactivo. */}
-        <div className="pb-4 flex justify-center">
+        {/* Pie de la barra lateral */}
+        <div className="pb-4 flex justify-center border-t border-slate-100 pt-3">
           <button
-            title="Configuración"
-            aria-label="Configuración"
-            className="w-10 h-10 rounded-xl flex items-center justify-center text-lg
+            title="Panel DentalCare"
+            aria-label="Información del sistema"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-base
                        text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
           >
-            <i className="bi bi-gear" />
+            <i className="bi bi-shield-check" />
           </button>
         </div>
       </aside>
 
-      {/* ── MAIN ────────────────────────────────────────────────────────────── */}
+      {/* ── CONTENIDO PRINCIPAL ────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col overflow-hidden">
 
-        {/* HEADER */}
-        <header className="h-14 bg-white border-b border-slate-100 flex items-center
-                           justify-between px-5 flex-shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-2">
-            {/* // Logo de la aplicación */}
-            <span className="font-bold text-primary-700 tracking-tight">DentalCare</span>
-            <span className="text-slate-300 text-sm font-normal">ERP</span>
+        {/* HEADER SUPERIOR */}
+        <header className="h-16 bg-white border-b border-slate-200/80 flex items-center
+                           justify-between px-6 flex-shrink-0 z-10">
+          
+          {/* Título y badge clínico */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="font-extrabold text-slate-800 text-base tracking-tight font-display">
+                DentalCare
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary-50 text-primary-700 ring-1 ring-primary-200/60">
+                ERP Clínico
+              </span>
+            </div>
+
+            <span className="hidden md:inline-block text-slate-300">/</span>
+
+            <span className="hidden md:inline-flex items-center gap-1.5 text-xs text-slate-500 capitalize">
+              <i className="bi bi-calendar3 text-slate-400" />
+              {todayFormatted}
+            </span>
           </div>
-            {/* // El área del encabezado a la derecha contiene un botón de notificaciones (ícono de campana) y un menú de usuario representado por un avatar con las iniciales del usuario. Al hacer clic en el avatar, se despliega un menú con opciones relacionadas con la cuenta del usuario, incluyendo la opción de cerrar sesión. */}
-          <div className="flex items-center gap-2">
-            {/* Campana */}
-            {/* // El botón de notificaciones, que actualmente no tiene funcionalidad asignada pero está preparado para futuras implementaciones. Tiene estilos que cambian al pasar el mouse para indicar que es interactivo. */}
+
+          {/* Acciones del encabezado */}
+          <div className="flex items-center gap-3">
+
+            {/* Campana de notificaciones */}
             <button
+              type="button"
               aria-label="Notificaciones"
-              className="w-8 h-8 rounded-lg text-slate-400 hover:bg-slate-100
+              className="relative w-9 h-9 rounded-xl text-slate-400 hover:bg-slate-100
                          hover:text-slate-600 flex items-center justify-center transition-colors"
             >
               <i className="bi bi-bell text-sm" />
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 ring-2 ring-white" />
             </button>
 
-            {/* Avatar con dropdown */}
-            {/* // El menú de usuario, que muestra las iniciales del usuario en un círculo. Al hacer clic, se despliega un menú con información del usuario y la opción de cerrar sesión. El menú se cierra automáticamente al hacer clic fuera de él gracias al event listener configurado en el useEffect. */}
+            <div className="h-6 w-px bg-slate-200" />
+
+            {/* Dropdown de usuario */}
             <div ref={menuRef} className="relative">
               <button
                 onClick={() => setMenuOpen(p => !p)}
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
                 aria-label="Menú de cuenta"
-                className="w-8 h-8 rounded-full bg-primary-600 text-white text-xs font-bold
-                           flex items-center justify-center hover:bg-primary-700
-                           transition-colors select-none ring-2 ring-white"
+                className="flex items-center gap-2.5 p-1.5 pr-3 rounded-2xl hover:bg-slate-100/80
+                           transition-all outline-none border border-transparent hover:border-slate-200"
               >
-                {/* // Las iniciales del usuario se muestran dentro del avatar, que es un círculo con fondo primario y texto blanco. Al hacer clic en el avatar, se alterna la visibilidad del menú de usuario. El botón también tiene atributos de accesibilidad para indicar que es un menú desplegable y para describir su función a los usuarios de tecnologías asistivas. */}
-                {initials}
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary-600 to-dental-500
+                                text-white text-xs font-bold flex items-center justify-center shadow-xs">
+                  {initials}
+                </div>
+                <div className="hidden sm:block text-left">
+                  <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
+                    {userName}
+                  </p>
+                  <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">
+                    {userRole}
+                  </p>
+                </div>
+                <i className={`bi bi-chevron-${menuOpen ? 'up' : 'down'} text-slate-400 text-[10px] hidden sm:inline`} />
               </button>
 
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute top-[calc(100%+8px)] right-0 w-56 bg-white
-                             rounded-2xl shadow-xl shadow-slate-200/70 border border-slate-100
-                             overflow-hidden z-50 animate-fade-in"
+                  className="absolute top-[calc(100%+8px)] right-0 w-60 bg-white
+                             rounded-2xl shadow-xl border border-slate-200/80
+                             overflow-hidden z-50 animate-scale-in"
                 >
-                  {/* Info del usuario */}
-                  <div className="px-4 py-3 bg-slate-50/80 border-b border-slate-100
-                                  flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary-600 text-white text-xs
-                                    font-bold flex items-center justify-center flex-shrink-0">
+                  {/* Tarjeta de información del usuario */}
+                  <div className="px-4 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary-600 to-dental-500
+                                    text-white text-sm font-bold flex items-center justify-center flex-shrink-0 shadow-xs">
                       {initials}
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{userName}</p>
-                      <p className="text-xs text-slate-500 truncate">{userRole}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-800 truncate">{userName}</p>
+                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-700">
+                        {userRole}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Cerrar sesión */}
-                  <button
-                    role="menuitem"
-                    onClick={handleLogout}
-                    className="w-full px-4 py-3 flex items-center gap-3 text-sm font-medium
-                               text-red-600 hover:bg-red-50 transition-colors text-left"
-                  >
-                    <i className="bi bi-box-arrow-right" />
-                    Cerrar sesión
-                  </button>
+                  {/* Acciones */}
+                  <div className="p-1.5">
+                    <button
+                      role="menuitem"
+                      onClick={handleLogout}
+                      className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs font-semibold
+                                 text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left"
+                    >
+                      <i className="bi bi-box-arrow-right text-sm" />
+                      Cerrar sesión
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        {/* Contenido de la ruta activa */}
-        <div className="flex-1 overflow-auto">
+        {/* Área de rutas hijas */}
+        <div className="flex-1 overflow-auto bg-surface">
           <Outlet />
         </div>
       </main>

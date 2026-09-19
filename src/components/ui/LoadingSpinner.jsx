@@ -3,31 +3,24 @@ import React from 'react';
 /** Spinner de carga centrado con texto opcional */
 //Usado para estados de carga dentro de secciones de la página
 export const LoadingSpinner = ({ text = 'Cargando...', className = '' }) => (
-  <div className={`flex flex-col items-center justify-center py-16 gap-3 ${className}`}>
-    <div className="w-8 h-8 border-2 border-primary-200 border-t-primary-600
-                    rounded-full animate-spin" />
-    <p className="text-sm text-slate-500">{text}</p>
+  <div className={`flex flex-col items-center justify-center py-16 gap-3 animate-fade-in ${className}`}>
+    <div className="relative flex items-center justify-center">
+      <div className="w-9 h-9 border-3 border-primary-100 border-t-primary-600 rounded-full animate-spin" />
+      <div className="absolute w-2 h-2 rounded-full bg-primary-500" />
+    </div>
+    {text && <p className="text-xs font-semibold text-slate-500 tracking-tight">{text}</p>}
   </div>
 );
 
-/**
- * Estado vacío con ícono, título y acción opcional.
- *
- * @param {string} icon        - Clase Bootstrap Icons (ej: 'bi-calendar-x')
- * @param {string} title       - Título principal
- * @param {string} description - Descripción secundaria (opcional)
- * @param {React.ReactNode} action - Botón u otro elemento de acción
- */
 export const EmptyState = ({ icon, title, description, action, className = '' }) => (
-  // Columna centrada con espacio vertical 
-  <div className={`flex flex-col items-center justify-center py-16 gap-3 text-center ${className}`}>
-    {/* Spinner circular. border-t-primary-600 es el segmento visible que rota. */}
-    {icon && <i className={`bi ${icon} text-5xl text-slate-300`} />}
-    {/* Título principal del estado vacío */}
-    <h6 className="font-semibold text-slate-600">{title}</h6>
-    {/* Descripción secundaria: renderizada solo si se pasa el prop `description` */}
-    {description && <p className="text-sm text-slate-400 max-w-xs">{description}</p>}
-    {/* Acción (ej. un <Button>): renderizada solo si se pasa el prop `action` */}
-    {action && <div className="mt-2">{action}</div>}
+  <div className={`flex flex-col items-center justify-center py-14 px-4 gap-2.5 text-center animate-fade-in ${className}`}>
+    {icon && (
+      <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-1">
+        <i className={`bi ${icon} text-2xl`} />
+      </div>
+    )}
+    <h6 className="font-bold text-slate-700 text-sm">{title}</h6>
+    {description && <p className="text-xs text-slate-400 max-w-xs leading-relaxed">{description}</p>}
+    {action && <div className="mt-3">{action}</div>}
   </div>
 );

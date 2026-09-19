@@ -41,10 +41,14 @@ const ActiveConsultationPage = lazy(() => import('./views/ActiveConsultationPage
  * Vista de respaldo (404) que se muestra cuando ninguna ruta coincide.
  */
 const NotFound = () => (
-  <div className="flex flex-col items-center justify-center h-full py-20 gap-4">
-    <i className="bi bi-exclamation-circle text-5xl text-slate-300" />
-    <h2 className="text-2xl font-bold text-slate-600">404 — Página no encontrada</h2>
-    <p className="text-slate-400 text-sm">Disculpe el inconveniente. La ruta que buscas no existe.</p>
+  <div className="flex flex-col items-center justify-center h-full py-20 gap-4 animate-fade-in text-center px-4">
+    <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+      <i className="bi bi-compass text-3xl" />
+    </div>
+    <div>
+      <h2 className="text-xl font-bold text-slate-800">404 — Página no encontrada</h2>
+      <p className="text-slate-400 text-xs mt-1">La ruta solicitada no existe o no se encuentra disponible.</p>
+    </div>
   </div>
 );
 
@@ -109,7 +113,7 @@ export default function App() {
             <Route
               path="/consulta"
               element={
-                <RoleRoute roles={[ROLES.ADMIN, ROLES.ODONTOLOGO, ROLES.ADMIN]}>
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.ODONTOLOGO]}>
                   <ConsultaIndexPage />
                 </RoleRoute>
               }

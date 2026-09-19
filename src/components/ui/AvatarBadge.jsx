@@ -8,38 +8,30 @@ const SIZES = {
   lg: 'w-11 h-11 text-base',
 };
 
-// COLORS: paleta de colores de fondo disponibles para el avatar.
-const COLORS = [
-  'bg-sky-600',
-  'bg-violet-600',
-  'bg-emerald-600',
-  'bg-amber-500',
-  'bg-rose-600',
-  'bg-indigo-600',
+// COLORS: degradados sutiles para avatares
+const GRADIENTS = [
+  'from-sky-600 to-blue-700 text-white',
+  'from-teal-500 to-emerald-600 text-white',
+  'from-indigo-600 to-purple-700 text-white',
+  'from-amber-500 to-orange-600 text-white',
+  'from-rose-500 to-pink-600 text-white',
+  'from-cyan-500 to-primary-600 text-white',
 ];
 
-/**
- * Avatar circular con iniciales.
- * El color se elige automáticamente según las iniciales para consistencia.
- */
-//initials son las Iniciales a mostrar (máx. 2 caracteres).
-//size     Tamaño del avatar, por defecto md
-//inactive  Si esta inactivo, pinta el avatar de gris
-
 const AvatarBadge = ({ initials = '?', size = 'md', inactive = false, className = '' }) => {
- 
-  const colorIdx = initials.charCodeAt(0) % COLORS.length;  // Color  basado en el primer carácter del nombre
-  const color = inactive ? 'bg-slate-300' : COLORS[colorIdx]; //iUsuario inactivo, el avatar de gris
+  const charCode = initials?.charCodeAt(0) || 0;
+  const colorIdx = charCode % GRADIENTS.length;
+  const gradient = inactive ? 'bg-slate-300 text-slate-600' : `bg-gradient-to-br ${GRADIENTS[colorIdx]}`;
 
   return (
     <div className={`
-      ${SIZES[size] ?? SIZES.md} ${color}
-      rounded-full flex items-center justify-center
-      font-bold text-white flex-shrink-0 select-none
+      ${SIZES[size] ?? SIZES.md} ${gradient}
+      rounded-full flex items-center justify-center font-bold tracking-tight
+      flex-shrink-0 select-none shadow-xs ring-2 ring-white
       ${className}
     `}>
-      {initials.slice(0, 2).toUpperCase()} 
-    </div> //Solo muestra 2 caracteres en mayuscula
+      {initials.slice(0, 2).toUpperCase()}
+    </div>
   );
 };
 
