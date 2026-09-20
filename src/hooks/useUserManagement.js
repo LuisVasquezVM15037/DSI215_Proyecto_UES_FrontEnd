@@ -1,10 +1,11 @@
 /**
  * Propósito:
  * Hook de gestión y administración de usuarios, credenciales y asignación de roles.
- * Coordina la carga inicial concurrente de cuentas de usuario y catálogo de roles,
- * gestiona el formulario controlado para altas y modificaciones (incluyendo datos específicos
- * para odontólogos como especialidad y registro JVPO), y provee desactivación lógica
- * mediante confirmaciones de seguridad.
+ * Coordina la consulta de cuentas de usuario y catálogo de roles mediante la caché
+ * de TanStack Query ('useQuery' e invalidación con 'useQueryClient'), gestiona el formulario
+ * controlado para altas y modificaciones (incluyendo datos específicos para odontólogos
+ * como especialidad y registro JVPO), y provee desactivación lógica mediante confirmaciones
+ * de seguridad sincronizando la caché en memoria.
  *
  * Ubicación y Rol:
  * Ubicado en 'src/hooks/useUserManagement.js'. Hook de lógica de administración dentro
@@ -14,25 +15,27 @@
  * - Invocado desde:
  *   - 'src/views/UserManagementPage.jsx'
  * - Consume:
+ *   - '@tanstack/react-query' ('useQuery', 'useQueryClient')
  *   - 'src/services/usuario.service.js' ('getUsuarios', 'getRoles', 'createUsuario', 'updateUsuario', 'deleteUsuario')
  *   - 'src/utils/alert.utils.js' ('alertSuccess', 'alertError', 'confirmDeactivate')
  *
  * Parámetros y Retornos:
  * @returns {Object} Estado del módulo de administración de usuarios y métodos de gestión:
- *   - users {Array<Object>}: Lista de usuarios registrados en el sistema.
+ *   - users {Array<Object>}: Lista de usuarios registrados en el sistema recuperados de caché.
  *   - roles {Array<Object>}: Catálogo de roles de autorización disponibles (ej. Admin, Odontólogo, Secretaria).
  *   - selectedId {number|null}: Identificador del usuario en edición o null en modo alta.
  *   - formData {Object}: Estado controlado de los campos del formulario de usuario.
- *   - loading {boolean}: Indicador de operación en red en curso.
+ *   - loading {boolean}: Indicador de operación en red o mutación en curso.
  *   - isEditing {boolean}: Bandera binaria indicadora de si la vista se encuentra en modo edición.
  *   - handleSelect {Function}: Carga el usuario seleccionado en el formulario.
  *   - handleChange {Function}: Manejador genérico de campos de texto y selección de rol.
  *   - handleSubmit {Function}: Despacha la creación o actualización según 'isEditing'.
  *   - handleCancel {Function}: Restablece el formulario al estado inicial.
- *   - handleDelete {Function}: Desactiva al usuario tras confirmación explícita.
+ *   - handleDelete {Function}: Desactiva al usuario tras confirmación explícita e invalida la caché.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getUsuarios, getRoles,
   createUsuario, updateUsuario, deleteUsuario,
@@ -53,40 +56,25 @@ const FORM_INICIAL = {
 };
 
 export const useUserManagement = () => {
-  const [users,      setUsers]      = useState([]);
-  const [roles,      setRoles]      = useState([]);
+  const queryClient = useQueryClient();
+
   const [selectedId, setSelectedId] = useState(null);
   const [formData,   setFormData]   = useState(FORM_INICIAL);
-  const [loading,    setLoading]    = useState(false);
+  const [mutating,   setMutating]   = useState(false);
 
-  // Carga inicial concurrente de usuarios y catálogo de roles para optimizar latencia
-  useEffect(() => {
-    const loadAll = async () => {
-      setLoading(true);
-      try {
-        const [usrs, rols] = await Promise.all([getUsuarios(), getRoles()]);
-        setUsers(usrs  ?? []);
-        setRoles(rols  ?? []);
-      } catch (err) {
-        alertError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadAll();
-  }, []);
+  // Consulta administrada de cuentas de usuario mediante TanStack Query
+  const { data: users = [], isLoading: loadingUsers } = useQuery({
+    queryKey: ['usuarios'],
+    queryFn: getUsuarios,
+  });
 
-  /**
-   * Refresca la lista de usuarios tras operaciones de alta, actualización o baja lógica
-   */
-  const refetch = async () => {
-    try {
-      const usrs = await getUsuarios();
-      setUsers(usrs ?? []);
-    } catch (err) {
-      alertError(err.message);
-    }
-  };
+  // Consulta en caché del catálogo de roles del sistema
+  const { data: roles = [], isLoading: loadingRoles } = useQuery({
+    queryKey: ['roles'],
+    queryFn: getRoles,
+  });
+
+  const loading = loadingUsers || loadingRoles || mutating;
 
   /**
    * Manejador controlado que asegura la conversión numérica del identificador de rol
@@ -126,63 +114,64 @@ export const useUserManagement = () => {
   };
 
   /**
-   * Registra una nueva cuenta de usuario en la plataforma
+   * Registra una nueva cuenta de usuario en la plataforma e invalida la caché
    */
-  const handleCreate = async () => {
-    setLoading(true);
+  const handleCreate = async (overrideData) => {
+    setMutating(true);
     try {
-      const data = await createUsuario(formData);
+      const dataToSave = overrideData || formData;
+      const data = await createUsuario(dataToSave);
       alertSuccess('Usuario creado', `"${data.usernameUsuario}" registrado correctamente.`);
-      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       handleCancel();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   /**
-   * Actualiza los datos del usuario. Si el campo password está vacío, se omite del payload
-   * para conservar la contraseña preexistente sin sobreescribirla.
+   * Actualiza los datos del usuario e invalida la caché. Si el campo password está vacío,
+   * se omite del payload para conservar la contraseña preexistente sin sobreescribirla.
    */
-  const handleUpdate = async () => {
-    setLoading(true);
+  const handleUpdate = async (overrideData) => {
+    setMutating(true);
     try {
-      const payload = { ...formData };
+      const payload = { ...(overrideData || formData) };
       if (!payload.password) delete payload.password;
       await updateUsuario(selectedId, payload);
       alertSuccess('Usuario actualizado', 'Los cambios se guardaron correctamente.');
-      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       handleCancel();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   /**
-   * Inhabilita lógicamente la cuenta del usuario tras confirmación modal
+   * Inhabilita lógicamente la cuenta del usuario tras confirmación modal e invalida la caché
    */
   const handleDelete = async (id, nombre) => {
     const confirmed = await confirmDeactivate(nombre);
     if (!confirmed) return;
-    setLoading(true);
+    setMutating(true);
     try {
       await deleteUsuario(id);
       alertSuccess('Usuario desactivado', 'El usuario fue inhabilitado correctamente.');
-      await refetch();
+      await queryClient.invalidateQueries({ queryKey: ['usuarios'] });
       if (selectedId === id) handleCancel();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   const isEditing = selectedId !== null;
-  const handleSubmit = () => isEditing ? handleUpdate() : handleCreate();
+  const handleSubmit = (overrideData) => isEditing ? handleUpdate(overrideData) : handleCreate(overrideData);
 
   return {
     users, roles, selectedId, formData, loading, isEditing,

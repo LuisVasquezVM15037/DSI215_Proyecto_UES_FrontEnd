@@ -18,35 +18,12 @@
 
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { normalizeRole } from '../constants/roles.constants';
-import { getUserRole } from '../services/auth.service';
-
-/**
- * Propósito:
- * Decodifica la sección de claims del JWT almacenado y verifica que el tiempo actual no haya rebasado
- * la marca de expiración Unix (exp). Esta verificación se efectúa exclusivamente en el lado del cliente
- * para optimizar la experiencia de usuario antes de despachar peticiones de red hacia el servidor.
- *
- * @param {string|null} token - Token JWT en formato compacto (header.payload.signature).
- * @returns {boolean} true si el token posee una estructura válida y no ha expirado; false en caso contrario.
- */
-const isTokenValid = (token) => {
-  if (!token) return false;
-  try {
-    // La carga útil del JWT reside en el segundo segmento codificado en Base64URL
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    // El claim 'exp' se almacena en segundos; se multiplica por 1000 para contrastar con Date.now() en milisegundos
-    return payload.exp * 1000 > Date.now();
-  } catch {
-    // Ante cualquier error de formato o deserialización se considera la sesión no válida
-    return false;
-  }
-};
+import { useAuth } from '../context/AuthContext';
 
 /**
  * Propósito:
  * Controla el acceso a las vistas protegidas:
- * 1. Si no hay sesión válida o el token expiró, limpia el almacenamiento y redirige al Login ('/').
+ * 1. Si no hay sesión válida o el token expiró, invoca logout() y redirige al Login ('/').
  * 2. Si el rol del usuario no está autorizado para la ruta, lo redirige al Dashboard principal ('/dashboard').
  * 3. Si cumple con los requerimientos de autenticación y rol, renderiza los componentes hijos protegidos.
  *
@@ -56,14 +33,11 @@ const isTokenValid = (token) => {
  * @returns {JSX.Element} Componente hijo autorizado o componente <Navigate> de redirección segura.
  */
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const token         = localStorage.getItem('authToken');
-  const authenticated = isTokenValid(token);
-  // Se obtiene el rol validado directamente desde el payload del JWT firmado por el backend
-  const userRole      = normalizeRole(getUserRole());
+  const { isAuthenticated, userRole, logout } = useAuth();
 
-  if (!authenticated) {
-    // Se purgan credenciales residuales para evitar estados inconsistentes
-    localStorage.clear();
+  if (!isAuthenticated) {
+    // Purga el estado reactivo y de almacenamiento en memoria
+    logout();
     // La propiedad replace sobreescribe la entrada actual en el historial de navegación para bloquear el botón "Atrás"
     return <Navigate to="/" replace />;
   }

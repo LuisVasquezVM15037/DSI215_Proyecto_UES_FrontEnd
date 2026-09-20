@@ -24,9 +24,9 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { getUserName, getUserRole, clearSession } from '../services/auth.service';
+import { useAuth } from '../context/AuthContext';
 import { confirmDialog } from '../utils/alert.utils';
-import { ROLES, normalizeRole } from '../constants/roles.constants';
+import { ROLES } from '../constants/roles.constants';
 
 // Configuración de elementos del menú lateral con control de acceso basado en roles (RBAC)
 const NAV_ITEMS = [
@@ -73,13 +73,12 @@ const Layout = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef   = useRef(null);
 
-  // Extracción y normalización de la identidad y permisos del usuario desde el token JWT
-  const userName = useMemo(() => getUserName(), []);
-  const userRole = useMemo(() => normalizeRole(getUserRole()), []);
+  // Extracción reactiva de la identidad, rol y método de cierre de sesión centralizado
+  const { userName, userRole, logout } = useAuth();
 
   // Derivación de iniciales para el avatar en base al nombre completo
   const initials = useMemo(() =>
-    userName.split(' ').map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join(''),
+    (userName || 'Usuario').split(' ').map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join(''),
     [userName],
   );
 
@@ -102,13 +101,13 @@ const Layout = () => {
   }, []);
 
   /**
-   * Cierre seguro de sesión con diálogo de confirmación y eliminación de tokens
+   * Cierre seguro de sesión con diálogo de confirmación y eliminación atómica de sesión
    */
   const handleLogout = async () => {
     setMenuOpen(false);
     const confirmed = await confirmDialog('¿Cerrar sesión?', '¿Estás seguro que deseas salir del sistema?', 'Sí, salir');
     if (!confirmed) return;
-    clearSession();
+    logout();
     navigate('/');
   };
 

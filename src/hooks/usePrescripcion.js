@@ -35,6 +35,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMedicamentos, getPrescripcionByCita, createPrescripcion } from '../services/consulta.service';
 import { cambiarEstado } from '../services/cita.service';
 import { alertSuccess, alertError, alertWarning } from '../utils/alert.utils';
@@ -50,41 +51,40 @@ const DETALLE_INICIAL = {
 };
 
 export const usePrescripcion = (citaId, onGuardado) => {
-  const [medicamentos,       setMedicamentos]       = useState([]);
-  const [prescripcion,       setPrescripcion]       = useState(null);
-  const [detalles,           setDetalles]           = useState([]);
-  const [savingPrescripcion, setSavingPrescripcion] = useState(false);
-  const [detalleActual,      setDetalleActual]      = useState(DETALLE_INICIAL);
+  const queryClient = useQueryClient();
 
-  // Carga concurrente del catálogo de medicamentos y la prescripción previa
-  useEffect(() => {
-    if (!citaId) return;
-    Promise.all([loadMedicamentos(), loadPrescripcion()]);
-  }, [citaId]);
+  const [prescripcion,  setPrescripcion]  = useState(null);
+  const [detalles,      setDetalles]      = useState([]);
+  const [detalleActual, setDetalleActual] = useState(DETALLE_INICIAL);
 
-  /**
-   * Recupera el catálogo maestro de medicamentos farmacéuticos
-   */
-  const loadMedicamentos = async () => {
-    try {
+  // Consulta reactiva del catálogo maestro de medicamentos farmacéuticos con caché compartida
+  const { data: medicamentos = [] } = useQuery({
+    queryKey: ['medicamentos'],
+    queryFn: async () => {
       const data = await getMedicamentos();
-      setMedicamentos(data ?? []);
-    } catch (_) {
-      // Manejo silencioso en fallo de carga inicial
-    }
-  };
+      return data ?? [];
+    },
+  });
 
-  /**
-   * Consulta si la cita ya contaba con una prescripción guardada anteriormente
-   */
-  const loadPrescripcion = async () => {
-    try {
-      const data = await getPrescripcionByCita(citaId);
-      if (data) setPrescripcion(data);
-    } catch (_) {
-      // Manejo silencioso si la cita aún no posee receta médica
+  // Consulta reactiva de la prescripción previa registrada en la cita médica
+  const { data: prescripcionData = null } = useQuery({
+    queryKey: ['prescripcion', citaId],
+    queryFn: async () => {
+      try {
+        return await getPrescripcionByCita(citaId);
+      } catch (_) {
+        return null;
+      }
+    },
+    enabled: !!citaId,
+  });
+
+  // Sincronización del estado de prescripción cuando se recuperan datos existentes en el servidor
+  useEffect(() => {
+    if (prescripcionData) {
+      setPrescripcion(prescripcionData);
     }
-  };
+  }, [prescripcionData]);
 
   /**
    * Actualiza dinámicamente una clave específica dentro del renglón en preparación
@@ -123,6 +123,32 @@ export const usePrescripcion = (citaId, onGuardado) => {
   const handleEliminarDetalle = (index) =>
     setDetalles(prev => prev.filter((_, i) => i !== index));
 
+  // Mutación para persistencia de la receta clínica y transición del estado de la cita médica
+  const guardarPrescripcionMutation = useMutation({
+    mutationFn: async (payload) => {
+      const data = await createPrescripcion(payload);
+      // Transición del estado de la cita médica: si falla la actualización de estado no se bloquea la confirmación de la receta
+      try {
+        await cambiarEstado(citaId, 'FINALIZADA');
+      } catch (err) {
+        console.error('Prescripción guardada pero falló al cambiar estado de cita:', err.message);
+      }
+      return data;
+    },
+    onSuccess: (data) => {
+      setPrescripcion(data);
+      queryClient.setQueryData(['prescripcion', citaId], data);
+      queryClient.invalidateQueries({ queryKey: ['prescripcion', citaId] });
+      queryClient.invalidateQueries({ queryKey: ['cita', citaId] });
+      queryClient.invalidateQueries({ queryKey: ['citas'] });
+      alertSuccess('Prescripción guardada', '', 1800);
+      onGuardado?.();
+    },
+    onError: (err) => {
+      alertError(err.message);
+    },
+  });
+
   /**
    * Persiste la receta en el backend y transiciona la cita médica a estado FINALIZADA
    */
@@ -131,38 +157,25 @@ export const usePrescripcion = (citaId, onGuardado) => {
       alertWarning('Agrega al menos un medicamento antes de guardar.');
       return;
     }
-    setSavingPrescripcion(true);
+    const payload = {
+      idCita: parseInt(citaId, 10),
+      detalles: detalles.map(d => ({
+        idMedicamento:     parseInt(d.idMedicamento, 10),
+        idPlanTratamiento: d.idPlanTratamiento ? parseInt(d.idPlanTratamiento, 10) : null,
+        dosis:             d.dosis,
+        frecuencia:        d.frecuencia,
+        duracion:          parseInt(d.duracion, 10),
+        indicaciones:      d.indicaciones ?? '',
+      })),
+    };
     try {
-      const payload = {
-        idCita: parseInt(citaId, 10),
-        detalles: detalles.map(d => ({
-          idMedicamento:     parseInt(d.idMedicamento, 10),
-          idPlanTratamiento: d.idPlanTratamiento ? parseInt(d.idPlanTratamiento, 10) : null,
-          dosis:             d.dosis,
-          frecuencia:        d.frecuencia,
-          duracion:          parseInt(d.duracion, 10),
-          indicaciones:      d.indicaciones ?? '',
-        })),
-      };
-
-      const data = await createPrescripcion(payload);
-      setPrescripcion(data);
-
-      // Transición del estado de la cita médica: si falla la actualización de estado no se bloquea la confirmación de la receta
-      try {
-        await cambiarEstado(citaId, 'FINALIZADA');
-      } catch (err) {
-        console.error('Prescripción guardada pero falló al cambiar estado de cita:', err.message);
-      }
-
-      alertSuccess('Prescripción guardada', '', 1800);
-      onGuardado?.();
-    } catch (err) {
-      alertError(err.message);
-    } finally {
-      setSavingPrescripcion(false);
+      await guardarPrescripcionMutation.mutateAsync(payload);
+    } catch (_) {
+      // Manejado en onError
     }
   };
+
+  const savingPrescripcion = guardarPrescripcionMutation.isPending;
 
   return {
     medicamentos,

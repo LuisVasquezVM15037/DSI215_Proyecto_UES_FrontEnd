@@ -33,11 +33,34 @@
  * @returns {JSX.Element} Formulario estilizado de alta/edición de citas médicas.
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { ESTADOS_CITA_OPCIONES } from '../constants/estados.constants';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Select from './ui/Select';
+
+/**
+ * Esquema de validación declarativa institucional para citas odontológicas
+ */
+const appointmentSchema = z.object({
+  idPaciente: z
+    .union([z.string(), z.number()])
+    .refine(val => val !== '' && val !== null && val !== undefined, {
+      message: 'Debe seleccionar un paciente de la lista.',
+    }),
+  idOdontologo: z
+    .union([z.string(), z.number()])
+    .refine(val => val !== '' && val !== null && val !== undefined, {
+      message: 'Debe seleccionar un especialista odontólogo.',
+    }),
+  fechaCita: z.string().min(1, 'La fecha de la cita es obligatoria.'),
+  horaInicioCita: z.string().min(1, 'La hora de inicio es obligatoria.'),
+  horaFinCita: z.string().min(1, 'La hora de finalización es obligatoria.'),
+  estadoCita: z.string().optional(),
+});
 
 /**
  * Función pura que calcula la hora de finalización sumando exactamente 1 hora
@@ -67,16 +90,75 @@ const AppointmentForm = ({
   onSubmit,
   onCancelar,
 }) => {
+  // Inicialización de React Hook Form con validación declarativa Zod
+  const {
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(appointmentSchema),
+    defaultValues: {
+      idPaciente: formData?.idPaciente ?? '',
+      idOdontologo: formData?.idOdontologo ?? '',
+      fechaCita: formData?.fechaCita ?? '',
+      horaInicioCita: formData?.horaInicioCita ?? '',
+      horaFinCita: formData?.horaFinCita ?? '',
+      estadoCita: formData?.estadoCita ?? 'PROGRAMADA',
+    },
+  });
+
+  // Sincroniza los valores iniciales o modificados externamente desde la agenda
+  useEffect(() => {
+    reset({
+      idPaciente: formData?.idPaciente ?? '',
+      idOdontologo: formData?.idOdontologo ?? '',
+      fechaCita: formData?.fechaCita ?? '',
+      horaInicioCita: formData?.horaInicioCita ?? '',
+      horaFinCita: formData?.horaFinCita ?? '',
+      estadoCita: formData?.estadoCita ?? 'PROGRAMADA',
+    });
+  }, [formData, reset]);
+
   /**
    * Manejador específico para la hora de inicio que recalcula automáticamente la hora de finalización
    */
   const handleHoraInicioChange = (e) => {
-    onChange(e);
-    onChange({ target: { name: 'horaFinCita', value: calcularHoraFin(e.target.value) } });
+    const val = e.target.value;
+    setValue('horaInicioCita', val, { shouldValidate: true });
+    const finCalculado = calcularHoraFin(val);
+    setValue('horaFinCita', finCalculado, { shouldValidate: true });
+    onChange?.(e);
+    onChange?.({ target: { name: 'horaFinCita', value: finCalculado } });
+  };
+
+  /**
+   * Actualiza el valor de React Hook Form y propaga el cambio al callback externo
+   */
+  const handleFieldChange = (name) => (e) => {
+    setValue(name, e.target.value, { shouldValidate: true });
+    onChange?.(e);
+  };
+
+  /**
+   * Procesa el envío del formulario una vez superada la validación de Zod
+   */
+  const handleFormSubmit = (data) => {
+    if (onChange) {
+      Object.entries(data).forEach(([name, value]) => {
+        onChange({ target: { name, value } });
+      });
+    }
+    onSubmit?.(data);
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 animate-fade-in">
+    <form
+      onSubmit={handleSubmit(handleFormSubmit)}
+      noValidate
+      className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 animate-fade-in"
+    >
       {/* Encabezado descriptivo con botón de retorno */}
       <div className="flex items-center justify-between pb-5 border-b border-slate-100 mb-5">
         <div>
@@ -88,6 +170,7 @@ const AppointmentForm = ({
           </p>
         </div>
         <Button
+          type="button"
           variant="ghost"
           size="sm"
           onClick={onCancelar}
@@ -98,13 +181,14 @@ const AppointmentForm = ({
       </div>
 
       <div className="space-y-4">
-        {/* Selector de Paciente */}
+        {/* Selector de Paciente con validación de error */}
         <Select
           label="Paciente"
           required
           name="idPaciente"
-          value={formData.idPaciente}
-          onChange={onChange}
+          value={watch('idPaciente')}
+          error={errors.idPaciente?.message}
+          onChange={handleFieldChange('idPaciente')}
         >
           <option value="">Selecciona un paciente del expediente...</option>
           {pacientes.map(p => (
@@ -114,13 +198,14 @@ const AppointmentForm = ({
           ))}
         </Select>
 
-        {/* Selector de Odontólogo Especialista */}
+        {/* Selector de Odontólogo Especialista con validación de error */}
         <Select
           label="Odontólogo a cargo"
           required
           name="idOdontologo"
-          value={formData.idOdontologo}
-          onChange={onChange}
+          value={watch('idOdontologo')}
+          error={errors.idOdontologo?.message}
+          onChange={handleFieldChange('idOdontologo')}
         >
           <option value="">Selecciona un especialista...</option>
           {odontologos.map(o => (
@@ -136,8 +221,9 @@ const AppointmentForm = ({
           label="Fecha de la Cita"
           required
           name="fechaCita"
-          value={formData.fechaCita}
-          onChange={onChange}
+          value={watch('fechaCita')}
+          error={errors.fechaCita?.message}
+          onChange={handleFieldChange('fechaCita')}
         />
 
         {/* Definición de Horarios (Inicio y Fin automático) */}
@@ -147,7 +233,8 @@ const AppointmentForm = ({
             label="Hora de Inicio"
             required
             name="horaInicioCita"
-            value={formData.horaInicioCita}
+            value={watch('horaInicioCita')}
+            error={errors.horaInicioCita?.message}
             onChange={handleHoraInicioChange}
           />
 
@@ -156,7 +243,8 @@ const AppointmentForm = ({
               type="datetime-local"
               label="Hora de Finalización"
               name="horaFinCita"
-              value={formData.horaFinCita}
+              value={watch('horaFinCita')}
+              error={errors.horaFinCita?.message}
               readOnly
               disabled
               helperText="Calculada automáticamente (duración estándar 1h)"
@@ -169,8 +257,9 @@ const AppointmentForm = ({
           <Select
             label="Estado de la Cita"
             name="estadoCita"
-            value={formData.estadoCita}
-            onChange={onChange}
+            value={watch('estadoCita')}
+            error={errors.estadoCita?.message}
+            onChange={handleFieldChange('estadoCita')}
           >
             {ESTADOS_CITA_OPCIONES.map(e => (
               <option key={e.value} value={e.value}>{e.label}</option>
@@ -180,15 +269,15 @@ const AppointmentForm = ({
 
         {/* Botonera de acciones */}
         <div className="flex gap-3 pt-3 border-t border-slate-100">
-          <Button variant="secondary" fullWidth onClick={onCancelar} disabled={loading}>
+          <Button type="button" variant="secondary" fullWidth onClick={onCancelar} disabled={loading}>
             Cancelar
           </Button>
-          <Button fullWidth onClick={onSubmit} loading={loading}>
+          <Button type="submit" fullWidth loading={loading}>
             {isEditing ? 'Guardar Cambios' : 'Confirmar Cita'}
           </Button>
         </div>
       </div>
-    </div>
+    </form>
   );
 };
 

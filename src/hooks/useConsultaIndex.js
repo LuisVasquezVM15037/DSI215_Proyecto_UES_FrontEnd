@@ -1,10 +1,11 @@
 /**
  * Propósito:
  * Hook gestor del índice y sala de recepción de consultas médicas.
- * Coordina la carga de citas y pacientes, la sincronización automática de citas vencidas,
- * la segmentación de citas del día según la zona horaria local, el cálculo de métricas
- * de atención en tiempo real (en espera, programadas, completadas, ausencias), el control
- * de flujo de check-in de pacientes y la búsqueda histórica de expedientes de citas previas.
+ * Coordina la consulta y sincronización de citas y pacientes mediante la caché global
+ * de TanStack Query ('useQuery' e invalidación con 'useQueryClient'), la sincronización
+ * automática de citas vencidas, la segmentación de citas del día según la zona horaria local,
+ * el cálculo de métricas de atención en tiempo real (en espera, programadas, completadas, ausencias),
+ * el control de flujo de check-in de pacientes y la búsqueda histórica de expedientes de citas previas.
  *
  * Ubicación y Rol:
  * Ubicado en 'src/hooks/useConsultaIndex.js'. Hook de lógica de presentación y negocio en
@@ -14,6 +15,7 @@
  * - Invocado desde:
  *   - 'src/views/ConsultaIndexPage.jsx'
  * - Consume:
+ *   - '@tanstack/react-query' ('useQuery', 'useQueryClient')
  *   - 'src/services/cita.service.js' ('getCitas', 'cambiarEstado')
  *   - 'src/services/paciente.service.js' ('getPacientes')
  *   - 'src/utils/cita.utils.js' ('normalizarFecha', 'getHoyLocal', 'sincronizarCitasVencidas')
@@ -23,7 +25,7 @@
  * Parámetros y Retornos:
  * @returns {Object} Estado del módulo de recepción de consultas y operaciones disponibles:
  *   - citasDeHoy {Array<Object>}: Citas médicas programadas para la fecha local en curso.
- *   - loading {boolean}: Estado de carga inicial o refresco de datos.
+ *   - loading {boolean}: Estado de carga inicial o refresco de datos en caché.
  *   - stats {Object}: Indicadores numéricos agregados (total, enEspera, programadas, pendientes, completadas, noAsistieron).
  *   - searchTerm {string}: Término de búsqueda para filtrar expedientes de pacientes.
  *   - setSearchTerm {Function}: Mutador del término de búsqueda.
@@ -33,12 +35,13 @@
  *   - pacienteSeleccionado {Object|null}: Paciente cuyo historial se está inspeccionando.
  *   - citasPaciente {Array<Object>}: Citas históricas del paciente seleccionado.
  *   - handleBuscarHistorial {Function}: Carga el historial de citas asociadas a un paciente.
- *   - handleCheckIn {Function}: Cambia el estado de una cita a PENDIENTE (recepcionado).
- *   - handleDeshacerCheckIn {Function}: Regresa la cita al estado PROGRAMADA.
- *   - refetchCitas {Function}: Recarga el conjunto de citas desde el servidor.
+ *   - handleCheckIn {Function}: Cambia el estado de una cita a PENDIENTE (recepcionado) e invalida caché.
+ *   - handleDeshacerCheckIn {Function}: Regresa la cita al estado PROGRAMADA e invalida caché.
+ *   - refetchCitas {Function}: Revalida el conjunto de citas mediante el cliente de TanStack Query.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCitas, cambiarEstado } from '../services/cita.service';
 import { getPacientes } from '../services/paciente.service';
 import { normalizarFecha, getHoyLocal, sincronizarCitasVencidas } from '../utils/cita.utils';
@@ -46,79 +49,71 @@ import { alertError, alertSuccess } from '../utils/alert.utils';
 import { ESTADOS_INICIABLES } from '../constants/estados.constants';
 
 export const useConsultaIndex = () => {
-  const [citas,     setCitas]     = useState([]);
-  const [pacientes, setPacientes] = useState([]);
-  const [loading,   setLoading]   = useState(true);
+  const queryClient = useQueryClient();
 
   // Estados locales para la funcionalidad de búsqueda de historial de pacientes
   const [searchTerm,           setSearchTerm]           = useState('');
   const [showHistorial,        setShowHistorial]        = useState(false);
   const [pacienteSeleccionado, setPacienteSeleccionado] = useState(null);
   const [citasPaciente,        setCitasPaciente]        = useState([]);
+  const [mutating,             setMutating]             = useState(false);
 
   // Memoización de la fecha local para evitar recálculos en renders sucesivos y prevenir desfases UTC
   const hoy = useMemo(() => getHoyLocal(), []);
 
-  /**
-   * Carga inicial paralela de citas y catálogo de pacientes
-   */
-  const loadAll = async () => {
-    setLoading(true);
-    try {
-      const [todasCitas, todosPacientes] = await Promise.all([
-        getCitas(), getPacientes(),
-      ]);
-      // Sincroniza estados de citas caducadas automáticamente
-      const citasSync = await sincronizarCitasVencidas(todasCitas ?? [], cambiarEstado);
-      setCitas(citasSync);
-      setPacientes(todosPacientes ?? []);
-    } catch (err) {
-      alertError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Consulta administrada de citas médicas sincronizadas
+  const { data: citas = [], isLoading: loadingCitas } = useQuery({
+    queryKey: ['citas'],
+    queryFn: async () => {
+      const todasCitas = await getCitas();
+      return sincronizarCitasVencidas(todasCitas ?? [], cambiarEstado);
+    },
+  });
 
-  useEffect(() => {
-    loadAll();
-  }, []);
+  // Consulta en caché del catálogo de pacientes
+  const { data: pacientes = [], isLoading: loadingPacientes } = useQuery({
+    queryKey: ['pacientes'],
+    queryFn: getPacientes,
+  });
+
+  const loading = loadingCitas || loadingPacientes || mutating;
 
   /**
-   * Refresco selectivo de citas tras modificaciones de estado en recepción
+   * Refresco selectivo de citas forzando la invalidación de la clave ['citas']
    */
   const refetchCitas = async () => {
-    try {
-      const todasCitas = await getCitas();
-      const citasSync = await sincronizarCitasVencidas(todasCitas ?? [], cambiarEstado);
-      setCitas(citasSync);
-    } catch (err) {
-      alertError(err.message);
-    }
+    await queryClient.invalidateQueries({ queryKey: ['citas'] });
   };
 
   /**
-   * Recepción del paciente en clínica: transiciona la cita al estado PENDIENTE
+   * Recepción del paciente en clínica: transiciona la cita al estado PENDIENTE e invalida caché
    */
   const handleCheckIn = async (cita) => {
+    setMutating(true);
     try {
       await cambiarEstado(cita.idCitas, 'PENDIENTE');
       alertSuccess('Check-in registrado', `${cita.nombreCompletoPaciente} está en sala de espera.`);
-      await refetchCitas();
+      await queryClient.invalidateQueries({ queryKey: ['citas'] });
     } catch (err) {
       alertError(err.message || 'Error al registrar check-in');
+    } finally {
+      setMutating(false);
     }
   };
 
   /**
-   * Reversión del check-in: regresa la cita al estado PROGRAMADA
+   * Reversión del check-in: regresa la cita al estado PROGRAMADA e invalida caché
    */
   const handleDeshacerCheckIn = async (cita) => {
+    setMutating(true);
     try {
       await cambiarEstado(cita.idCitas, 'PROGRAMADA');
       alertSuccess('Check-in cancelado', `La cita de ${cita.nombreCompletoPaciente} regresó a Programada.`);
-      await refetchCitas();
+      await queryClient.invalidateQueries({ queryKey: ['citas'] });
     } catch (err) {
       alertError(err.message || 'Error al revertir check-in');
+    } finally {
+      setMutating(false);
     }
   };
 

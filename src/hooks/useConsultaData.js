@@ -41,6 +41,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCitaById, cambiarEstado } from '../services/cita.service';
 import {
   getEvaluacionByCita, createEvaluacion,
@@ -50,73 +51,67 @@ import { alertSuccess, alertError, alertWarning, confirmDelete, toastSuccess } f
 import { getPrecioHallazgo } from '../utils/cita.utils';
 
 export const useConsultaData = (citaId) => {
-  const [cita,          setCita]          = useState(null);
-  const [loading,       setLoading]       = useState(true);
-  const [evaluacion,    setEvaluacion]    = useState(null);
+  const queryClient = useQueryClient();
+
+  // Estado local para captura interactiva de formulario clínico
   const [diagnostico,   setDiagnostico]   = useState('');
   const [observaciones, setObservaciones] = useState('');
-  const [savingEval,    setSavingEval]    = useState(false);
-  const [hallazgos,     setHallazgos]     = useState([]);
 
-  // Carga inicial de datos de la cita y su evaluación clínica
-  useEffect(() => {
-    if (!citaId) return;
-    loadCita();
-  }, [citaId]);
+  // Consulta reactiva de la cita médica activa por ID con caché institucional TanStack Query
+  const { data: cita = null, isLoading: loadingCita } = useQuery({
+    queryKey: ['cita', citaId],
+    queryFn: () => getCitaById(citaId),
+    enabled: !!citaId,
+  });
 
-  // Carga reactiva de los hallazgos asociados al confirmarse una evaluación clínica
-  useEffect(() => {
-    if (evaluacion?.idEvaluacionClinica) {
-      fetchHallazgos(evaluacion.idEvaluacionClinica);
-    }
-  }, [evaluacion]);
-
-  /**
-   * Recupera la cita específica mediante consulta directa por ID para prevenir descargas masivas
-   */
-  const loadCita = async () => {
-    setLoading(true);
-    try {
-      const data = await getCitaById(citaId);
-      setCita(data);
-      await loadEvaluacion();
-    } catch (err) {
-      alertError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Consulta si existe una evaluación clínica previa para precargar diagnóstico y observaciones
-   */
-  const loadEvaluacion = async () => {
-    try {
-      const data = await getEvaluacionByCita(citaId);
-      if (data) {
-        setEvaluacion(data);
-        setDiagnostico(data.diagnostico     ?? '');
-        setObservaciones(data.observaciones ?? '');
+  // Consulta reactiva de la evaluación clínica previa asociada a la cita médica
+  const { data: evaluacion = null, isLoading: loadingEval } = useQuery({
+    queryKey: ['evaluacion', citaId],
+    queryFn: async () => {
+      try {
+        return await getEvaluacionByCita(citaId);
+      } catch (_) {
+        // Estado esperado cuando la consulta es nueva y aún no posee evaluación registrada
+        return null;
       }
-    } catch (_) {
-      // Estado normal cuando la consulta apenas inicia y aún no cuenta con evaluación creada
-    }
-  };
+    },
+    enabled: !!citaId,
+  });
 
-  /**
-   * Obtiene y normaliza los precios de los hallazgos registrados para el odontograma
-   */
-  const fetchHallazgos = async (idEvaluacion) => {
-    try {
-      const data = await getHallazgos(idEvaluacion);
-      const normalizados = (data ?? []).map(h => ({
+  // Identificador de la evaluación activa para scoping de hallazgos
+  const evaluacionId = evaluacion?.idEvaluacionClinica;
+
+  // Consulta reactiva y normalización de precios de hallazgos vinculados a la evaluación clínica
+  const { data: hallazgos = [] } = useQuery({
+    queryKey: ['hallazgos', evaluacionId],
+    queryFn: async () => {
+      const data = await getHallazgos(evaluacionId);
+      return (data ?? []).map(h => ({
         ...h,
         precioFloat: getPrecioHallazgo(h),
         costoTratamiento: getPrecioHallazgo(h),
       }));
-      setHallazgos(normalizados);
-    } catch (_) {}
-  };
+    },
+    enabled: !!evaluacionId,
+  });
+
+  // Sincronización del formulario clínico al recibir o actualizar la evaluación en caché
+  useEffect(() => {
+    if (evaluacion) {
+      setDiagnostico(evaluacion.diagnostico ?? '');
+      setObservaciones(evaluacion.observaciones ?? '');
+    }
+  }, [evaluacion]);
+
+  // Mutación para persistir la evaluación clínica inicial
+  const { mutateAsync: guardarEvaluacionMutate, isPending: savingEval } = useMutation({
+    mutationFn: (payload) => createEvaluacion(payload),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['evaluacion', citaId], data);
+      queryClient.invalidateQueries({ queryKey: ['evaluacion', citaId] });
+      queryClient.invalidateQueries({ queryKey: ['citas'] });
+    },
+  });
 
   /**
    * Valida y persiste la evaluación clínica primaria, habilitando el acceso al odontograma
@@ -126,59 +121,98 @@ export const useConsultaData = (citaId) => {
       alertWarning('El diagnóstico es obligatorio.');
       return;
     }
-    setSavingEval(true);
     try {
-      const data = await createEvaluacion({
+      const data = await guardarEvaluacionMutate({
         idCita: parseInt(citaId, 10),
         diagnostico,
         observaciones,
       });
-      setEvaluacion(data);
       alertSuccess('Evaluación guardada', 'Puedes continuar al odontograma.', 1800);
       onSuccess?.();
+      return data;
     } catch (err) {
       alertError(err.message);
-    } finally {
-      setSavingEval(false);
     }
   };
 
+  // Mutación con actualización optimista para modificar el estado de un hallazgo clínico
+  const cambiarEstadoMutation = useMutation({
+    mutationFn: ({ idPlan, nuevoEstado }) => updateEstadoHallazgo(idPlan, nuevoEstado),
+    onMutate: async ({ idPlan, nuevoEstado }) => {
+      const queryKey = ['hallazgos', evaluacionId];
+      await queryClient.cancelQueries({ queryKey });
+      const prevHallazgos = queryClient.getQueryData(queryKey) || [];
+      queryClient.setQueryData(queryKey, old =>
+        (old || []).map(h => h.idPlanTratamiento === idPlan ? { ...h, estadoPlan: nuevoEstado } : h)
+      );
+      return { prevHallazgos, queryKey };
+    },
+    onError: (err, variables, context) => {
+      if (context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.prevHallazgos);
+      }
+      alertError(err.message);
+    },
+    onSuccess: () => {
+      toastSuccess('Estado actualizado');
+    },
+    onSettled: (data, error, variables, context) => {
+      if (context?.queryKey) {
+        queryClient.invalidateQueries({ queryKey: context.queryKey });
+      }
+    },
+  });
+
   /**
-   * Modifica el estado del plan de tratamiento usando una estrategia de actualización optimista
-   * para proporcionar retroalimentación inmediata, revirtiendo en caso de fallo del servidor.
+   * Modifica el estado del plan de tratamiento ejecutando actualización optimista con rollback en caso de error
    */
   const handleCambiarEstado = async (idPlan, nuevoEstado) => {
-    const prevHallazgos = hallazgos;
-    setHallazgos(prev =>
-      prev.map(h => h.idPlanTratamiento === idPlan ? { ...h, estadoPlan: nuevoEstado } : h)
-    );
     try {
-      await updateEstadoHallazgo(idPlan, nuevoEstado);
-      toastSuccess('Estado actualizado');
-    } catch (err) {
-      alertError(err.message);
-      // Reversión del estado local al valor previo al producirse un fallo
-      setHallazgos(prevHallazgos);
+      await cambiarEstadoMutation.mutateAsync({ idPlan, nuevoEstado });
+    } catch (_) {
+      // Manejado automáticamente en onError
     }
   };
 
+  // Mutación para supresión de hallazgo clínico
+  const eliminarHallazgoMutation = useMutation({
+    mutationFn: (idPlan) => deleteHallazgo(idPlan),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hallazgos', evaluacionId] });
+    },
+    onError: (err) => {
+      alertError(err.message);
+    },
+  });
+
   /**
-   * Solicita confirmación explícita y suprime un hallazgo clínico
+   * Solicita confirmación explícita y suprime un hallazgo clínico invalidando la caché
    */
   const handleEliminarHallazgo = async (idPlan) => {
     const confirmed = await confirmDelete('este hallazgo');
     if (!confirmed) return;
     try {
-      await deleteHallazgo(idPlan);
-      setHallazgos(prev => prev.filter(h => h.idPlanTratamiento !== idPlan));
-    } catch (err) {
-      alertError(err.message);
+      await eliminarHallazgoMutation.mutateAsync(idPlan);
+    } catch (_) {
+      // Manejado en onError
     }
   };
 
+  // Mutación para actualizar el estado de la cita médica a FINALIZADA
+  const finalizarCitaMutation = useMutation({
+    mutationFn: () => cambiarEstado(citaId, 'FINALIZADA'),
+    onSuccess: () => {
+      queryClient.setQueryData(['cita', citaId], prev => prev ? { ...prev, estadoCita: 'FINALIZADA' } : prev);
+      queryClient.invalidateQueries({ queryKey: ['cita', citaId] });
+      queryClient.invalidateQueries({ queryKey: ['citas'] });
+    },
+    onError: (err) => {
+      console.error('No se pudo cambiar el estado de la cita a FINALIZADA:', err.message);
+    },
+  });
+
   /**
-   * Finaliza la consulta médica. Aplica la regla de negocio que verifica si existieron tratamientos
-   * completados durante la sesión para transicionar la cita global al estado 'FINALIZADA'.
+   * Finaliza la consulta médica transicionando la cita global al estado 'FINALIZADA' si hubo tratamientos cumplidos
    */
   const handleFinalizarConsulta = async (onSuccess) => {
     const tieneRealizados = (hallazgos ?? []).some(h => {
@@ -188,15 +222,34 @@ export const useConsultaData = (citaId) => {
 
     if (tieneRealizados) {
       try {
-        await cambiarEstado(citaId, 'FINALIZADA');
-        setCita(prev => ({ ...prev, estadoCita: 'FINALIZADA' }));
-      } catch (err) {
-        console.error('No se pudo cambiar el estado de la cita a FINALIZADA:', err.message);
+        await finalizarCitaMutation.mutateAsync();
+      } catch (_) {
+        // Manejado en el logger de la mutación
       }
     }
 
     onSuccess?.();
   };
+
+  // Métodos de compatibilidad y control de caché para componentes consumidores
+  const setCita = (updater) => {
+    queryClient.setQueryData(['cita', citaId], updater);
+  };
+
+  const setHallazgos = (updater) => {
+    if (evaluacionId) {
+      queryClient.setQueryData(['hallazgos', evaluacionId], updater);
+    }
+  };
+
+  const fetchHallazgos = async (idEvaluacion) => {
+    const targetId = idEvaluacion || evaluacionId;
+    if (targetId) {
+      return queryClient.invalidateQueries({ queryKey: ['hallazgos', targetId] });
+    }
+  };
+
+  const loading = loadingCita || loadingEval;
 
   return {
     cita, setCita, loading,

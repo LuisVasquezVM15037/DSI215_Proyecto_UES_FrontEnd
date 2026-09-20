@@ -34,39 +34,56 @@
  *   - handleCrearTratamiento {Function}: Da de alta un nuevo procedimiento clínico en la base de datos.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getTratamientos, createTratamiento, createHallazgo,
 } from '../services/consulta.service';
 import { alertError, alertWarning, toastSuccess } from '../utils/alert.utils';
 
 export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallazgos = []) => {
-  const [tratamientos,        setTratamientos]        = useState([]);
+  const queryClient = useQueryClient();
+
+  // Estados locales para la interacción y selección interactiva en el diagrama odontológico
   const [selectedTeeth,       setSelectedTeeth]       = useState([]);
   const [selectedTratamiento, setSelectedTratamiento] = useState('');
   const [customPrecio,        setCustomPrecio]        = useState('');
-  const [savingHallazgo,      setSavingHallazgo]      = useState(false);
 
-  /**
-   * Recupera el catálogo de tratamientos odontológicos vigentes
-   */
-  const loadTratamientos = async () => {
-    try {
+  // Consulta reactiva del catálogo maestro de tratamientos odontológicos con caché institucional
+  const { data: tratamientos = [] } = useQuery({
+    queryKey: ['tratamientos'],
+    queryFn: async () => {
       const data = await getTratamientos();
-      setTratamientos(data ?? []);
-    } catch (err) {
-      console.error('Error al cargar catálogo de tratamientos:', err);
-    }
-  };
-
-  useEffect(() => {
-    loadTratamientos();
-  }, []);
+      return data ?? [];
+    },
+  });
 
   /**
    * Actualiza el listado de dientes seleccionados en la interacción con el odontograma visual
    */
   const handleOdontogramChange = (teeth) => setSelectedTeeth(teeth);
+
+  // Mutación concurrente para persistir hallazgos en lote y actualizar la caché clínica
+  const registrarHallazgosMutation = useMutation({
+    mutationFn: async (items) => {
+      return Promise.all(items.map(item => createHallazgo(item)));
+    },
+    onSuccess: () => {
+      toastSuccess('Hallazgo registrado en presupuesto');
+      if (evaluacion?.idEvaluacionClinica) {
+        queryClient.invalidateQueries({ queryKey: ['hallazgos', evaluacion.idEvaluacionClinica] });
+      }
+      onHallazgoRegistrado?.();
+
+      // Reinicio de selección tras guardado exitoso
+      setSelectedTeeth([]);
+      setSelectedTratamiento('');
+      setCustomPrecio('');
+    },
+    onError: (err) => {
+      alertError(err.message);
+    },
+  });
 
   /**
    * Valida restricciones clínicas y persiste el hallazgo para las piezas marcadas
@@ -104,54 +121,58 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
       return;
     }
 
-    setSavingHallazgo(true);
+    const items = selectedTeeth.map(tooth => {
+      const fdi = String(tooth.notations?.fdi || tooth.id || '').replace('teeth-', '');
+      const piezaNum = parseInt(fdi, 10);
+      const precioNum = parseFloat(customPrecio) || 0;
+      return {
+        idEvaluacionClinica: evaluacion.idEvaluacionClinica,
+        idTratamiento:       parseInt(selectedTratamiento, 10),
+        piezaDental:         piezaNum,
+        precioFloat:         precioNum,
+        costoAplicado:       precioNum,
+        estadoPlan:          'PENDIENTE',
+      };
+    });
+
     try {
-      // Registro paralelo concurrente para optimizar la latencia cuando se seleccionan múltiples piezas
-      await Promise.all(
-        selectedTeeth.map(tooth => {
-          const fdi = String(tooth.notations?.fdi || tooth.id || '').replace('teeth-', '');
-          const piezaNum = parseInt(fdi, 10);
-          const precioNum = parseFloat(customPrecio) || 0;
-          return createHallazgo({
-            idEvaluacionClinica: evaluacion.idEvaluacionClinica,
-            idTratamiento:       parseInt(selectedTratamiento, 10),
-            piezaDental:         piezaNum,
-            precioFloat:         precioNum,
-            costoAplicado:       precioNum,
-            estadoPlan:          'PENDIENTE',
-          });
-        })
-      );
-      toastSuccess('Hallazgo registrado en presupuesto');
-      onHallazgoRegistrado?.();
-      
-      // Reinicio de selección tras guardado exitoso
-      setSelectedTeeth([]);
-      setSelectedTratamiento('');
-      setCustomPrecio('');
-    } catch (err) {
-      alertError(err.message);
-    } finally {
-      setSavingHallazgo(false);
+      await registrarHallazgosMutation.mutateAsync(items);
+    } catch (_) {
+      // Manejado en onError
     }
   };
+
+  // Mutación para incorporar en caliente nuevos tratamientos al catálogo maestro
+  const crearTratamientoMutation = useMutation({
+    mutationFn: (datos) => createTratamiento(datos),
+    onSuccess: (nuevoItem) => {
+      queryClient.invalidateQueries({ queryKey: ['tratamientos'] });
+      setSelectedTratamiento(String(nuevoItem.idTratamiento));
+      setCustomPrecio(String(nuevoItem.costoTratamiento));
+      toastSuccess('Tratamiento agregado al catálogo');
+    },
+    onError: (err) => {
+      alertError(err.message);
+    },
+  });
 
   /**
    * Crea un nuevo procedimiento en el catálogo maestro y lo selecciona de inmediato
    */
   const handleCrearTratamiento = async (datos) => {
     const { nombreTratamiento, descripcionTratamiento, costoTratamiento } = datos;
-    const nuevoItem = await createTratamiento({
-      nombreTratamiento,
-      descripcionTratamiento: descripcionTratamiento || nombreTratamiento,
-      costoTratamiento: parseFloat(costoTratamiento),
-    });
-    await loadTratamientos();
-    setSelectedTratamiento(String(nuevoItem.idTratamiento));
-    setCustomPrecio(String(nuevoItem.costoTratamiento));
-    toastSuccess('Tratamiento agregado al catálogo');
-    return nuevoItem;
+    try {
+      return await crearTratamientoMutation.mutateAsync({
+        nombreTratamiento,
+        descripcionTratamiento: descripcionTratamiento || nombreTratamiento,
+        costoTratamiento: parseFloat(costoTratamiento),
+      });
+    } catch (_) {
+      // Manejado en onError
+    }
   };
+
+  const savingHallazgo = registrarHallazgosMutation.isPending;
 
   return {
     tratamientos,

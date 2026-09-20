@@ -1,10 +1,37 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useUserManagement } from '../hooks/useUserManagement';
 import Button from '../components/ui/Button';
 import AvatarBadge from '../components/ui/AvatarBadge';
 import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
+
+/**
+ * Generador de esquema de validación Zod con reglas dinámicas según modo y rol
+ */
+const getUserSchema = (isEditing, esOdontologo) =>
+  z.object({
+    nombreUsuario: z.string().trim().min(1, 'El nombre es obligatorio.'),
+    apellidoUsuario: z.string().trim().min(1, 'El apellido es obligatorio.'),
+    usernameUsuario: z.string().trim().min(3, 'El usuario debe tener al menos 3 caracteres.'),
+    emailUsuario: z.string().trim().email('El correo electrónico no tiene un formato válido.'),
+    password: isEditing
+      ? z.string().optional()
+      : z.string().min(6, 'La contraseña debe contener al menos 6 caracteres.'),
+    idRol: z.union([z.string(), z.number()]).refine(val => val !== '' && val !== null, {
+      message: 'Debe seleccionar un rol asignado.',
+    }),
+    especialidadOdontologo: esOdontologo
+      ? z.string().trim().min(1, 'La especialidad es obligatoria para odontólogos.')
+      : z.string().optional().nullable(),
+    jvpoId: esOdontologo
+      ? z.string().trim().min(1, 'El número de JVPO es obligatorio para odontólogos.')
+      : z.string().optional().nullable(),
+    esActivo: z.boolean().optional(),
+  });
 
 /**
  * Mapa de estilos visuales para los distintivos de rol en la lista maestra.
@@ -63,6 +90,44 @@ const UserManagementPage = () => {
   // Determina si el rol actualmente seleccionado corresponde al perfil clínico odontológico
   const rolSeleccionado = roles.find(r => String(r.idRol) === String(formData.idRol));
   const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
+
+  // Memoización del esquema dinámico según contexto de edición y rol
+  const currentSchema = useMemo(
+    () => getUserSchema(isEditing, esOdontologo),
+    [isEditing, esOdontologo],
+  );
+
+  // Integración de React Hook Form para validación declarativa
+  const {
+    handleSubmit: handleFormSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(currentSchema),
+    defaultValues: formData,
+  });
+
+  // Sincronización de campos de React Hook Form al seleccionar usuario o limpiar
+  useEffect(() => {
+    reset(formData);
+  }, [formData, reset]);
+
+  /**
+   * Actualiza el valor en React Hook Form y en el estado orquestador
+   */
+  const onFieldChange = (name) => (e) => {
+    setValue(name, e.target.value, { shouldValidate: true });
+    handleChange(e);
+  };
+
+  /**
+   * Envía los datos validados a la capa de persistencia
+   */
+  const onSave = (validData) => {
+    handleSubmit(validData);
+  };
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-surface overflow-hidden">
@@ -189,8 +254,11 @@ const UserManagementPage = () => {
           </div>
 
           {/* Tarjeta de Formulario */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 md:p-8 space-y-5">
-
+          <form
+            onSubmit={handleFormSubmit(onSave)}
+            noValidate
+            className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 md:p-8 space-y-5"
+          >
             {/* Nombre y Apellido */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
@@ -198,16 +266,18 @@ const UserManagementPage = () => {
                 required
                 name="nombreUsuario"
                 placeholder="ej. María"
-                value={formData.nombreUsuario}
-                onChange={handleChange}
+                value={watch('nombreUsuario')}
+                error={errors.nombreUsuario?.message}
+                onChange={onFieldChange('nombreUsuario')}
               />
               <Input
                 label="Apellido"
                 required
                 name="apellidoUsuario"
                 placeholder="ej. González"
-                value={formData.apellidoUsuario}
-                onChange={handleChange}
+                value={watch('apellidoUsuario')}
+                error={errors.apellidoUsuario?.message}
+                onChange={onFieldChange('apellidoUsuario')}
               />
             </div>
 
@@ -219,8 +289,9 @@ const UserManagementPage = () => {
                 name="usernameUsuario"
                 placeholder="mgonzalez"
                 icon={<i className="bi bi-at" />}
-                value={formData.usernameUsuario}
-                onChange={handleChange}
+                value={watch('usernameUsuario')}
+                error={errors.usernameUsuario?.message}
+                onChange={onFieldChange('usernameUsuario')}
               />
               <Input
                 type="email"
@@ -229,8 +300,9 @@ const UserManagementPage = () => {
                 name="emailUsuario"
                 placeholder="usuario@dentalcare.com"
                 icon={<i className="bi bi-envelope" />}
-                value={formData.emailUsuario}
-                onChange={handleChange}
+                value={watch('emailUsuario')}
+                error={errors.emailUsuario?.message}
+                onChange={onFieldChange('emailUsuario')}
               />
             </div>
 
@@ -242,8 +314,9 @@ const UserManagementPage = () => {
               name="password"
               placeholder={isEditing ? '••••••••' : 'Contraseña segura (mínimo 6 caracteres)'}
               helperText={isEditing ? 'Deja este campo en blanco si no deseas cambiar la contraseña actual.' : undefined}
-              value={formData.password}
-              onChange={handleChange}
+              value={watch('password') ?? ''}
+              error={errors.password?.message}
+              onChange={onFieldChange('password')}
               autoComplete="new-password"
             />
 
@@ -252,8 +325,9 @@ const UserManagementPage = () => {
               label="Rol Asignado"
               required
               name="idRol"
-              value={formData.idRol}
-              onChange={handleChange}
+              value={watch('idRol')}
+              error={errors.idRol?.message}
+              onChange={onFieldChange('idRol')}
             >
               {roles.map(r => (
                 <option key={r.idRol} value={r.idRol}>{r.nombreRol}</option>
@@ -268,16 +342,18 @@ const UserManagementPage = () => {
                   required
                   name="especialidadOdontologo"
                   placeholder="ej. Ortodoncia, Endodoncia..."
-                  value={formData.especialidadOdontologo ?? ''}
-                  onChange={handleChange}
+                  value={watch('especialidadOdontologo') ?? ''}
+                  error={errors.especialidadOdontologo?.message}
+                  onChange={onFieldChange('especialidadOdontologo')}
                 />
                 <Input
                   label="Número de JVPO"
                   required
                   name="jvpoId"
                   placeholder="ej. JVPO-1234"
-                  value={formData.jvpoId ?? ''}
-                  onChange={handleChange}
+                  value={watch('jvpoId') ?? ''}
+                  error={errors.jvpoId?.message}
+                  onChange={onFieldChange('jvpoId')}
                 />
               </div>
             )}
@@ -289,8 +365,11 @@ const UserManagementPage = () => {
                   type="checkbox"
                   id="esActivo"
                   name="esActivo"
-                  checked={formData.esActivo}
-                  onChange={e => handleChange({ target: { name: 'esActivo', value: e.target.checked } })}
+                  checked={watch('esActivo') ?? true}
+                  onChange={e => {
+                    setValue('esActivo', e.target.checked);
+                    handleChange({ target: { name: 'esActivo', value: e.target.checked } });
+                  }}
                   className="w-4 h-4 rounded text-primary-600 focus:ring-primary-500/20 cursor-pointer"
                 />
                 <label htmlFor="esActivo" className="text-xs font-semibold text-slate-700 cursor-pointer select-none">
@@ -301,14 +380,14 @@ const UserManagementPage = () => {
 
             {/* Acciones */}
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-              <Button variant="secondary" onClick={handleCancel} disabled={loading}>
+              <Button type="button" variant="secondary" onClick={handleCancel} disabled={loading}>
                 Cancelar
               </Button>
-              <Button onClick={handleSubmit} loading={loading}>
+              <Button type="submit" loading={loading}>
                 {isEditing ? 'Guardar Cambios' : 'Crear Colaborador'}
               </Button>
             </div>
-          </div>
+          </form>
         </div>
       </main>
     </div>

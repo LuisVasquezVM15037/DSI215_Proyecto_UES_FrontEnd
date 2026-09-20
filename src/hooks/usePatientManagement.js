@@ -1,10 +1,11 @@
 /**
  * Propósito:
  * Hook de gestión del catálogo y expedientes clínicos de pacientes.
- * Centraliza las operaciones CRUD (creación, edición, consulta y eliminación),
- * implementa búsqueda optimizada con control de concurrencia (debouncing y cancelación
- * con AbortController para prevenir condiciones de carrera), normalización de fechas
- * de nacimiento y validación de borrado mediante cuadros de diálogo confirmatorios.
+ * Centraliza las operaciones CRUD (creación, edición, consulta y eliminación)
+ * mediante TanStack Query ('useQuery' e invalidación con 'useQueryClient'),
+ * implementa búsqueda indexada por clave de caché ['pacientes', debouncedSearch]
+ * con cancelación nativa por AbortSignal, normalización de fechas de nacimiento
+ * y validación de borrado mediante cuadros de diálogo confirmatorios.
  *
  * Ubicación y Rol:
  * Ubicado en 'src/hooks/usePatientManagement.js'. Hook de lógica de negocio dentro de la
@@ -14,6 +15,7 @@
  * - Invocado desde:
  *   - 'src/views/PatientManagementPage.jsx'
  * - Consume:
+ *   - '@tanstack/react-query' ('useQuery', 'useQueryClient')
  *   - 'src/services/paciente.service.js' ('getPacientes', 'buscarPacientes', 'createPaciente', 'updatePaciente', 'deletePaciente')
  *   - 'src/utils/cita.utils.js' ('normalizarFechaNacimiento')
  *   - 'src/utils/alert.utils.js' ('alertSuccess', 'alertError', 'confirmDelete')
@@ -21,10 +23,10 @@
  *
  * Parámetros y Retornos:
  * @returns {Object} Estado del módulo de pacientes y métodos transaccionales:
- *   - patients {Array<Object>}: Lista de registros de pacientes recuperados.
+ *   - patients {Array<Object>}: Lista de registros de pacientes recuperados de caché.
  *   - selectedId {number|null}: ID del paciente en edición (null si se crea uno nuevo).
  *   - formData {Object}: Estado controlado del formulario de expediente del paciente.
- *   - loading {boolean}: Indicador de petición de red o sincronización activa.
+ *   - loading {boolean}: Indicador de petición de red o mutación activa.
  *   - isEditing {boolean}: Bandera binaria indicadora de si se encuentra en modo edición.
  *   - searchTerm {string}: Criterio textual actual en la barra de búsqueda.
  *   - setSearchTerm {Function}: Mutador del término de búsqueda.
@@ -35,7 +37,8 @@
  *   - handleDelete {Function}: Ejecuta la eliminación tras confirmación explícita del usuario.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getPacientes, buscarPacientes,
   createPaciente, updatePaciente, deletePaciente,
@@ -57,39 +60,26 @@ const FORM_INICIAL = {
 };
 
 export const usePatientManagement = () => {
-  const [patients,   setPatients]   = useState([]);
+  const queryClient = useQueryClient();
+
   const [selectedId, setSelectedId] = useState(null);
   const [formData,   setFormData]   = useState(FORM_INICIAL);
-  const [loading,    setLoading]    = useState(false);
+  const [mutating,   setMutating]   = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Estabilización del término de búsqueda (350ms) para evitar llamadas excesivas al backend
+  // Estabilización del término de búsqueda (350ms) para amortiguar consultas en el backend
   const debouncedSearch = useDebounce(searchTerm, 350);
 
-  /**
-   * Carga asíncrona de pacientes con soporte para cancelación vía AbortSignal
-   * para prevenir sobreescritura de resultados por condiciones de carrera (race conditions).
-   */
-  const loadPatients = useCallback(async (term, signal) => {
-    setLoading(true);
-    try {
-      const data = term
-        ? await buscarPacientes(term)
-        : await getPacientes();
-      if (!signal?.aborted) setPatients(data ?? []);
-    } catch (err) {
-      if (!signal?.aborted) alertError(err.message);
-    } finally {
-      if (!signal?.aborted) setLoading(false);
-    }
-  }, []);
+  // Consulta administrada con caché parametrizada por término de búsqueda y soporte de AbortSignal
+  const { data: patients = [], isLoading: loadingQuery } = useQuery({
+    queryKey: ['pacientes', debouncedSearch.trim()],
+    queryFn: async ({ signal }) => {
+      const term = debouncedSearch.trim();
+      return term ? buscarPacientes(term, { signal }) : getPacientes({ signal });
+    },
+  });
 
-  // Efecto que responde a cambios en el término estabilizado y aborta peticiones intermedias
-  useEffect(() => {
-    const controller = new AbortController();
-    loadPatients(debouncedSearch.trim(), controller.signal);
-    return () => controller.abort();
-  }, [debouncedSearch, loadPatients]);
+  const loading = loadingQuery || mutating;
 
   /**
    * Manejador de cambios reactivo para inputs del formulario
@@ -124,62 +114,64 @@ export const usePatientManagement = () => {
   };
 
   /**
-   * Registra un nuevo paciente en la base de datos
+   * Registra un nuevo paciente en la base de datos e invalida la caché
    */
-  const handleCreate = async () => {
-    setLoading(true);
+  const handleCreate = async (overrideData) => {
+    setMutating(true);
     try {
-      const data = await createPaciente(formData);
+      const dataToSave = overrideData || formData;
+      const data = await createPaciente(dataToSave);
       alertSuccess('Paciente registrado', `${data.nombrePaciente} ${data.apellidoPaciente} fue registrado correctamente.`);
-      await loadPatients(debouncedSearch);
+      await queryClient.invalidateQueries({ queryKey: ['pacientes'] });
       handleCancel();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   /**
-   * Actualiza los datos de un paciente existente
+   * Actualiza los datos de un paciente existente e invalida la caché
    */
-  const handleUpdate = async () => {
-    setLoading(true);
+  const handleUpdate = async (overrideData) => {
+    setMutating(true);
     try {
-      await updatePaciente(selectedId, formData);
+      const dataToSave = overrideData || formData;
+      await updatePaciente(selectedId, dataToSave);
       alertSuccess('Expediente actualizado', 'Los cambios fueron guardados correctamente.');
-      await loadPatients(debouncedSearch);
+      await queryClient.invalidateQueries({ queryKey: ['pacientes'] });
       handleCancel();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   /**
-   * Elimina un expediente previa confirmación por diálogo modal
+   * Elimina un expediente previa confirmación por diálogo modal e invalida la caché
    */
   const handleDelete = async () => {
     const confirmed = await confirmDelete(
       `${formData.nombrePaciente} ${formData.apellidoPaciente}`,
     );
     if (!confirmed) return;
-    setLoading(true);
+    setMutating(true);
     try {
       await deletePaciente(selectedId);
       alertSuccess('Eliminado', 'El expediente fue eliminado correctamente.');
-      await loadPatients(debouncedSearch);
+      await queryClient.invalidateQueries({ queryKey: ['pacientes'] });
       handleCancel();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   const isEditing = selectedId !== null;
-  const handleSubmit = () => isEditing ? handleUpdate() : handleCreate();
+  const handleSubmit = (overrideData) => isEditing ? handleUpdate(overrideData) : handleCreate(overrideData);
 
   return {
     patients, selectedId, formData, loading, isEditing,

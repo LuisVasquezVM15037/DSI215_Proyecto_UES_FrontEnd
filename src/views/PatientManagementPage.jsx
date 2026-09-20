@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { usePatientManagement } from '../hooks/usePatientManagement';
 import SearchInput from '../components/ui/SearchInput';
 import Button from '../components/ui/Button';
@@ -6,6 +9,26 @@ import AvatarBadge from '../components/ui/AvatarBadge';
 import Input from '../components/ui/Input';
 import Textarea from '../components/ui/Textarea';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
+
+/**
+ * Esquema de validación declarativa Zod para expedientes de pacientes
+ */
+const patientSchema = z.object({
+  nombrePaciente: z.string().trim().min(1, 'El nombre del paciente es obligatorio.'),
+  apellidoPaciente: z.string().trim().min(1, 'El apellido del paciente es obligatorio.'),
+  numeroIdentidadPaciente: z.string().trim().min(1, 'El DUI o documento de identidad es obligatorio.'),
+  fechaNacimientoPaciente: z.string().optional().nullable(),
+  telefonoPaciente: z.string().optional().nullable(),
+  emailPaciente: z
+    .string()
+    .optional()
+    .nullable()
+    .refine(val => !val || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), {
+      message: 'El correo electrónico no tiene un formato válido.',
+    }),
+  contactoEmergencia: z.string().optional().nullable(),
+  alergias: z.string().optional().nullable(),
+});
 
 /**
  * =============================================================================
@@ -51,6 +74,38 @@ const PatientManagementPage = () => {
     handleSelect, handleChange,
     handleSubmit, handleCancel, handleDelete,
   } = usePatientManagement();
+
+  // Integración de React Hook Form para validación declarativa
+  const {
+    handleSubmit: handleFormSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(patientSchema),
+    defaultValues: formData,
+  });
+
+  // Sincroniza los valores del formulario al seleccionar otro paciente o limpiar el formulario
+  useEffect(() => {
+    reset(formData);
+  }, [formData, reset]);
+
+  /**
+   * Manejador que actualiza simultáneamente el estado de React Hook Form y el hook orquestador
+   */
+  const onFieldChange = (name) => (e) => {
+    setValue(name, e.target.value, { shouldValidate: true });
+    handleChange(e);
+  };
+
+  /**
+   * Envía los datos validados de manera segura a la capa de persistencia
+   */
+  const onSave = (validData) => {
+    handleSubmit(validData);
+  };
 
   return (
     <div className="flex flex-col md:flex-row h-full bg-surface overflow-hidden">
@@ -167,8 +222,11 @@ const PatientManagementPage = () => {
           </div>
 
           {/* Tarjeta de Formulario estructurada */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 md:p-8 space-y-6">
-
+          <form
+            onSubmit={handleFormSubmit(onSave)}
+            noValidate
+            className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 md:p-8 space-y-6"
+          >
             {/* Sección 1: Identificación básica */}
             <div className="space-y-4">
               <h6 className="text-xs font-bold text-primary-700 uppercase tracking-wider flex items-center gap-2">
@@ -182,16 +240,18 @@ const PatientManagementPage = () => {
                   required
                   name="nombrePaciente"
                   placeholder="ej. Juan Carlos"
-                  value={formData.nombrePaciente}
-                  onChange={handleChange}
+                  value={watch('nombrePaciente')}
+                  error={errors.nombrePaciente?.message}
+                  onChange={onFieldChange('nombrePaciente')}
                 />
                 <Input
                   label="Apellido"
                   required
                   name="apellidoPaciente"
                   placeholder="ej. Pérez Gómez"
-                  value={formData.apellidoPaciente}
-                  onChange={handleChange}
+                  value={watch('apellidoPaciente')}
+                  error={errors.apellidoPaciente?.message}
+                  onChange={onFieldChange('apellidoPaciente')}
                 />
               </div>
 
@@ -201,15 +261,17 @@ const PatientManagementPage = () => {
                   required
                   name="numeroIdentidadPaciente"
                   placeholder="00000000-0"
-                  value={formData.numeroIdentidadPaciente}
-                  onChange={handleChange}
+                  value={watch('numeroIdentidadPaciente')}
+                  error={errors.numeroIdentidadPaciente?.message}
+                  onChange={onFieldChange('numeroIdentidadPaciente')}
                 />
                 <Input
                   type="date"
                   label="Fecha de Nacimiento"
                   name="fechaNacimientoPaciente"
-                  value={formData.fechaNacimientoPaciente}
-                  onChange={handleChange}
+                  value={watch('fechaNacimientoPaciente') ?? ''}
+                  error={errors.fechaNacimientoPaciente?.message}
+                  onChange={onFieldChange('fechaNacimientoPaciente')}
                 />
               </div>
             </div>
@@ -226,8 +288,9 @@ const PatientManagementPage = () => {
                   name="telefonoPaciente"
                   placeholder="7000-0000"
                   icon={<i className="bi bi-phone" />}
-                  value={formData.telefonoPaciente}
-                  onChange={handleChange}
+                  value={watch('telefonoPaciente') ?? ''}
+                  error={errors.telefonoPaciente?.message}
+                  onChange={onFieldChange('telefonoPaciente')}
                 />
                 <Input
                   type="email"
@@ -235,8 +298,9 @@ const PatientManagementPage = () => {
                   name="emailPaciente"
                   placeholder="paciente@correo.com"
                   icon={<i className="bi bi-envelope" />}
-                  value={formData.emailPaciente}
-                  onChange={handleChange}
+                  value={watch('emailPaciente') ?? ''}
+                  error={errors.emailPaciente?.message}
+                  onChange={onFieldChange('emailPaciente')}
                 />
               </div>
 
@@ -245,8 +309,9 @@ const PatientManagementPage = () => {
                 name="contactoEmergencia"
                 placeholder="Nombre completo y teléfono de familiar o tutor"
                 icon={<i className="bi bi-shield-exclamation" />}
-                value={formData.contactoEmergencia}
-                onChange={handleChange}
+                value={watch('contactoEmergencia') ?? ''}
+                error={errors.contactoEmergencia?.message}
+                onChange={onFieldChange('contactoEmergencia')}
               />
             </div>
 
@@ -262,23 +327,23 @@ const PatientManagementPage = () => {
                 label="Alergias Conocidas o Condiciones Preexistentes"
                 rows={3}
                 placeholder="Indicar si el paciente padece de hipertensión, diabetes, alergia a la penicilina, anestésicos, etc..."
-                value={formData.alergias}
-                onChange={handleChange}
+                value={watch('alergias') ?? ''}
+                error={errors.alergias?.message}
+                onChange={onFieldChange('alergias')}
                 helperText="Esta información se mostrará en los avisos prioritarios al iniciar la consulta odontológica."
               />
             </div>
 
             {/* Acciones de envío */}
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-              <Button variant="secondary" onClick={handleCancel} disabled={loading}>
+              <Button type="button" variant="secondary" onClick={handleCancel} disabled={loading}>
                 Cancelar
               </Button>
-              <Button onClick={handleSubmit} loading={loading}>
+              <Button type="submit" loading={loading}>
                 {isEditing ? 'Guardar Cambios' : 'Registrar Expediente'}
               </Button>
             </div>
-
-          </div>
+          </form>
         </div>
       </main>
     </div>

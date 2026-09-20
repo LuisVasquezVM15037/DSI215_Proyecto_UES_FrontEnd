@@ -25,6 +25,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
+import ErrorBoundary from './components/ErrorBoundary';
+import { AuthProvider } from './context/AuthContext';
 import { ROLES } from './constants/roles.constants';
 import AccessReviewPage from './views/AccessReviewPage';
 
@@ -75,10 +77,12 @@ const RoleRoute = ({ roles, children }) => (
 
 export default function App() {
   return (
-    <BrowserRouter>
-      {/* Suspense captura la carga de los chunks lazy y muestra el loader */}
-      <Suspense fallback={<LoadingScreen />}>
-        <Routes>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          {/* Suspense captura la carga de los chunks lazy y muestra el loader */}
+          <Suspense fallback={<LoadingScreen />}>
+            <Routes>
 
           {/* ── Ruta pública ─────────────────────────────────────────────── */}
           {/* Pantalla de login (único punto de entrada sin sesión) */}
@@ -165,5 +169,7 @@ export default function App() {
         </Routes>
       </Suspense>
     </BrowserRouter>
+  </AuthProvider>
+  </ErrorBoundary>
   );
 }

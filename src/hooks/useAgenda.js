@@ -1,10 +1,11 @@
 /**
  * Propósito:
  * Hook de gestión integral de la agenda clínica y calendario de citas odontológicas.
- * Orquesta la recuperación asíncrona concurrente de citas, pacientes y odontólogos,
- * ejecuta la regla de sincronización automática de citas vencidas (cambio a NO_ASISTIO),
- * deriva colecciones memoizadas por fecha y provee operaciones transaccionales para
- * crear, actualizar, cancelar con justificación, reprogramar y registrar check-in en sala de espera.
+ * Administra las consultas de citas, pacientes y odontólogos mediante la caché de TanStack Query
+ * ('useQuery' e invalidación con 'useQueryClient'), ejecuta la regla de sincronización automática
+ * de citas vencidas (cambio a NO_ASISTIO), deriva colecciones memoizadas por fecha y provee
+ * operaciones transaccionales para crear, actualizar, cancelar con justificación, reprogramar
+ * y registrar check-in en sala de espera sincronizando la caché automáticamente.
  *
  * Ubicación y Rol:
  * Ubicado en 'src/hooks/useAgenda.js'. Hook de lógica de negocio dentro de la capa de hooks
@@ -14,6 +15,7 @@
  * - Invocado desde:
  *   - 'src/views/AppointmentPage.jsx'
  * - Consume:
+ *   - '@tanstack/react-query' ('useQuery', 'useQueryClient')
  *   - 'src/services/cita.service.js' ('getCitas', 'createCita', 'updateCita', 'cancelarCita', 'cambiarEstado')
  *   - 'src/services/paciente.service.js' ('getPacientes')
  *   - 'src/services/usuario.service.js' ('getOdontologos')
@@ -23,8 +25,8 @@
  * Parámetros y Retornos:
  * @param {Date} date - Instancia de objeto Date que representa el día seleccionado en el calendario interactivo.
  * @returns {Object} Estado de la agenda y métodos de interacción transaccional:
- *   - appointments {Array<Object>}: Lista global de citas médicas sincronizadas.
- *   - loading {boolean}: Estado de procesamiento asíncrono o petición en red.
+ *   - appointments {Array<Object>}: Lista global de citas médicas sincronizadas en caché.
+ *   - loading {boolean}: Estado de procesamiento asíncrono o mutación activa en red.
  *   - pacientes {Array<Object>}: Catálogo general de pacientes para asignación.
  *   - odontologos {Array<Object>}: Catálogo de profesionales odontólogos disponibles.
  *   - selectedCita {Object|null}: Cita actualmente enfocada para edición o reprogramación.
@@ -36,14 +38,15 @@
  *   - handleChange {Function}: Manejador de cambios en inputs de formulario.
  *   - prepararNuevaCita {Function}: Reinicia el formulario para agendar una nueva cita.
  *   - prepararEditarCita {Function}: Carga los datos de una cita existente en el formulario.
- *   - handleCancelar {Function}: Solicita motivo y cancela la cita.
- *   - handleReprogramar {Function}: Actualiza fecha y horario de una cita existente.
- *   - handleCheckIn {Function}: Transiciona la cita a PENDIENTE (recepción en sala).
- *   - handleDeshacerCheckIn {Function}: Revierte la cita a PROGRAMADA.
- *   - handleSubmit {Function}: Despacha el guardado (crear o actualizar) según isEditing.
+ *   - handleCancelar {Function}: Solicita motivo, cancela la cita e invalida caché.
+ *   - handleReprogramar {Function}: Actualiza fecha y horario de una cita existente e invalida caché.
+ *   - handleCheckIn {Function}: Transiciona la cita a PENDIENTE (recepción en sala) e invalida caché.
+ *   - handleDeshacerCheckIn {Function}: Revierte la cita a PROGRAMADA e invalida caché.
+ *   - handleSubmit {Function}: Despacha el guardado (crear o actualizar) sincronizando la caché.
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getCitas, createCita, updateCita,
   cancelarCita, cambiarEstado,
@@ -74,53 +77,36 @@ const FORM_INICIAL = {
 };
 
 export const useAgenda = (date) => {
-  const [appointments, setAppointments] = useState([]);
-  const [pacientes,    setPacientes]    = useState([]);
-  const [odontologos,  setOdontologos]  = useState([]);
-  const [loading,      setLoading]      = useState(false);
+  const queryClient = useQueryClient();
+
   const [selectedCita, setSelectedCita] = useState(null);
   const [isEditing,    setIsEditing]    = useState(false);
   const [formData,     setFormData]     = useState(FORM_INICIAL);
+  const [mutating,     setMutating]     = useState(false);
 
-  // Inicialización de datos al montar el componente
-  useEffect(() => {
-    fetchAll();
-  }, []);
+  // Consulta administrada de citas médicas sincronizadas con detección de inasistencias
+  const { data: appointments = [], isLoading: loadingCitas } = useQuery({
+    queryKey: ['citas'],
+    queryFn: async () => {
+      const data = await getCitas();
+      return sincronizarCitasVencidas(data ?? [], cambiarEstado);
+    },
+  });
 
-  /**
-   * Carga concurrente de citas, pacientes y odontólogos para optimizar el tiempo de respuesta inicial.
-   * Ejecuta inmediatamente la sincronización de citas pasadas no atendidas.
-   */
-  const fetchAll = async () => {
-    setLoading(true);
-    try {
-      const [citas, pacs, odont] = await Promise.all([
-        getCitas(), getPacientes(), getOdontologos(),
-      ]);
-      // Sincroniza citas cuya fecha expiró sin registrarse asistencia, actualizándolas a NO_ASISTIO
-      const citasSync = await sincronizarCitasVencidas(citas ?? [], cambiarEstado);
-      setAppointments(citasSync);
-      setPacientes(pacs    ?? []);
-      setOdontologos(odont ?? []);
-    } catch (err) {
-      alertError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Consulta en caché del catálogo de pacientes
+  const { data: pacientes = [], isLoading: loadingPacientes } = useQuery({
+    queryKey: ['pacientes'],
+    queryFn: getPacientes,
+  });
 
-  /**
-   * Recarga exclusivamente el conjunto de citas para reflejar mutaciones en la agenda
-   */
-  const refetchCitas = async () => {
-    try {
-      const citas = await getCitas();
-      const citasSync = await sincronizarCitasVencidas(citas ?? [], cambiarEstado);
-      setAppointments(citasSync);
-    } catch (err) {
-      alertError(err.message);
-    }
-  };
+  // Consulta en caché del catálogo de profesionales odontólogos
+  const { data: odontologos = [], isLoading: loadingOdontologos } = useQuery({
+    queryKey: ['odontologos'],
+    queryFn: getOdontologos,
+  });
+
+  // El indicador de carga global refleja peticiones iniciales o mutaciones activas
+  const loading = loadingCitas || loadingPacientes || loadingOdontologos || mutating;
 
   // Formateo de fecha de referencia en formato ISO estándar YYYY-MM-DD
   const fechaSeleccionada = date.toISOString().split('T')[0];
@@ -174,10 +160,10 @@ export const useAgenda = (date) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
   /**
-   * Orquesta la persistencia de una cita (creación o actualización)
+   * Orquesta la persistencia de una cita (creación o actualización) e invalida la caché
    */
   const handleSubmit = async (onSuccess) => {
-    setLoading(true);
+    setMutating(true);
     try {
       const payload = {
         ...formData,
@@ -191,35 +177,36 @@ export const useAgenda = (date) => {
         const data = await createCita(payload);
         alertSuccess('Cita registrada', `Cita para ${data?.nombreCompletoPaciente} registrada correctamente.`);
       }
-      await refetchCitas();
+      // Invalida la clave ['citas'] para forzar revalidación automática en toda la app
+      await queryClient.invalidateQueries({ queryKey: ['citas'] });
       onSuccess?.();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   /**
-   * Proceso de cancelación con captura modal obligatoria de justificación clínica o administrativa
+   * Proceso de cancelación con captura modal obligatoria e invalidación de caché
    */
   const handleCancelar = async (cita) => {
     const motivo = await promptMotivoCancelacion(cita.nombreCompletoPaciente);
     if (!motivo) return; // Si el usuario cancela el diálogo modal
-    setLoading(true);
+    setMutating(true);
     try {
       await cancelarCita(cita.idCitas, motivo);
       alertSuccess('Cita cancelada', 'La cita fue cancelada correctamente.');
-      await refetchCitas();
+      await queryClient.invalidateQueries({ queryKey: ['citas'] });
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
   /**
-   * Reprograma una cita existente actualizando fechas y restableciendo su estado a PROGRAMADA
+   * Reprograma una cita existente actualizando fechas y sincronizando la caché
    */
   const handleReprogramar = async (idCita, reprogramData, onSuccess) => {
     const { fechaCita, horaInicioCita, horaFinCita } = reprogramData;
@@ -227,7 +214,7 @@ export const useAgenda = (date) => {
       alertWarning('Completa fecha, hora inicio y hora fin.');
       return;
     }
-    setLoading(true);
+    setMutating(true);
     try {
       await updateCita(idCita, {
         idPaciente:   selectedCita.idPaciente,
@@ -236,12 +223,12 @@ export const useAgenda = (date) => {
         ...reprogramData,
       });
       alertSuccess('Cita reprogramada', 'La cita fue reprogramada correctamente.');
-      await refetchCitas();
+      await queryClient.invalidateQueries({ queryKey: ['citas'] });
       onSuccess?.();
     } catch (err) {
       alertError(err.message);
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
@@ -249,15 +236,15 @@ export const useAgenda = (date) => {
    * Registra el arribo físico del paciente a la clínica, pasando la cita al estado PENDIENTE
    */
   const handleCheckIn = async (cita) => {
-    setLoading(true);
+    setMutating(true);
     try {
       await cambiarEstado(cita.idCitas, 'PENDIENTE');
       alertSuccess('Check-in registrado', `${cita.nombreCompletoPaciente} ha llegado y está en sala de espera.`);
-      await refetchCitas();
+      await queryClient.invalidateQueries({ queryKey: ['citas'] });
     } catch (err) {
       alertError(err.message || 'Error al registrar check-in');
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 
@@ -265,15 +252,15 @@ export const useAgenda = (date) => {
    * Revierte el check-in si fue ejecutado por equivocación, regresando al estado PROGRAMADA
    */
   const handleDeshacerCheckIn = async (cita) => {
-    setLoading(true);
+    setMutating(true);
     try {
       await cambiarEstado(cita.idCitas, 'PROGRAMADA');
       alertSuccess('Check-in revertido', `La cita de ${cita.nombreCompletoPaciente} regresó al estado Programada.`);
-      await refetchCitas();
+      await queryClient.invalidateQueries({ queryKey: ['citas'] });
     } catch (err) {
       alertError(err.message || 'Error al revertir check-in');
     } finally {
-      setLoading(false);
+      setMutating(false);
     }
   };
 

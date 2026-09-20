@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginService, saveSession } from '../services/auth.service';
+import { useAuth } from '../context/AuthContext';
 import Button from '../components/ui/Button';
 
 /**
@@ -15,7 +15,7 @@ import Button from '../components/ui/Button';
  *   las credenciales del usuario (identificador y contraseña), gestiona la visibilidad
  *   del campo secreto, valida la completitud de los datos y coordina la autenticación
  *   con el backend. Al autenticar con éxito, persiste la sesión (token JWT y metadatos)
- *   y redirige al usuario hacia el panel de control principal (/dashboard).
+ *   mediante el hook useAuth() y redirige al usuario hacia el panel de control principal (/dashboard).
  * 
  * Ubicación y Rol:
  *   src/views/LoginPage.jsx
@@ -26,7 +26,7 @@ import Button from '../components/ui/Button';
  *     * src/App.jsx (Definido como elemento para las rutas "/" y "/login").
  *   - Consume:
  *     * react-router-dom (useNavigate para la redirección post-autenticación).
- *     * src/services/auth.service.js (loginService para la petición HTTP, saveSession para persistencia local).
+ *     * src/context/AuthContext.jsx (useAuth para autenticación y sincronización reactiva).
  *     * src/components/ui/Button.jsx (Botón de acción con soporte para estado de carga).
  * 
  * Parámetros y Retornos:
@@ -35,6 +35,7 @@ import Button from '../components/ui/Button';
  */
 const LoginPage = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   // Estados locales para la gestión de formulario, visibilidad y retroalimentación
   const [identifier, setIdentifier] = useState('');
@@ -46,7 +47,7 @@ const LoginPage = () => {
   /**
    * Procesa el envío del formulario de credenciales.
    * Realiza una validación previa no vacía, activa el bloqueo visual de carga,
-   * despacha la petición al servicio de autenticación y transfiere el flujo a /dashboard.
+   * despacha la autenticación mediante useAuth y transfiere el flujo a /dashboard.
    * 
    * @param {React.FormEvent<HTMLFormElement>} e - Evento de submit del formulario.
    */
@@ -63,10 +64,8 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      // Envía credenciales al backend (POST /auth/login)
-      const data = await loginService(identifier.trim(), password);
-      // Persiste el token JWT y los datos del usuario en localStorage
-      saveSession(data);
+      // Envía credenciales al backend y sincroniza inmediatamente el estado de autenticación global
+      await login(identifier.trim(), password);
       // Transfiere la navegación al panel principal
       navigate('/dashboard');
     } catch (err) {
