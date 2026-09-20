@@ -7,39 +7,83 @@ import { getHoyLocal } from '../utils/cita.utils';
 import { alertSuccess, alertError, alertWarning } from '../utils/alert.utils';
 
 /**
- * Paso 4: Cierre exitoso de la consulta odontológica.
- * Evalúa hallazgos completados y pendientes, permitiendo agendar una sesión posterior
- * antes de regresar al menú de selección de consultas.
+ * =============================================================================
+ * COMPONENTE: StepCierre (Paso 4 del Flujo Clínico Odontológico)
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Presenta la confirmación final y el cierre formal de la consulta clínica.
+ *   Ofrece un resumen cuantitativo de los procedimientos ejecutados (COMPLETADO/FINALIZADO)
+ *   frente a los que aún quedan pendientes en el plan de tratamiento. Permite además
+ *   generar e imprimir en una ventana emergente el recetario médico estructurado y,
+ *   en caso de existir tratamientos inconclusos, facilita la creación inmediata de una
+ *   nueva cita médica posterior vinculada al mismo paciente y odontólogo.
+ * 
+ * Ubicación y Rol:
+ *   src/components/StepCierre.jsx
+ *   Capa de Componentes de Dominio / Flujo de Consulta Clínica (Paso 4: Cierre y Receta).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/views/ActiveConsultationPage.jsx (Renderizado en el step === 4).
+ *   - Consume:
+ *     * src/components/ui/Button.jsx (Botones de acción, impresión y salida).
+ *     * src/components/ui/Modal.jsx (Ventanas modales para agendamiento y confirmación de salida).
+ *     * src/components/ui/Input.jsx (Campos de fecha y hora para la cita posterior).
+ *     * src/services/cita.service.js (createCita para persistir la siguiente sesión).
+ *     * src/utils/cita.utils.js (getHoyLocal para restringir fechas pasadas en el calendario).
+ *     * src/utils/alert.utils.js (alertSuccess, alertError, alertWarning para retroalimentación).
+ * 
+ * Parámetros y Retornos:
+ *   @param {Object} props - Propiedades recibidas por el componente.
+ *   @param {Object} props.cita - Objeto de contexto de la cita actual (paciente, odontólogo, fecha).
+ *   @param {Array<Object>} [props.hallazgos=[]] - Listado de planes de tratamiento y hallazgos registrados.
+ *   @param {Object} [props.prescripcion] - Registro de receta médica con sus detalles de fármacos.
+ *   @param {Function} props.onVolver - Callback disparado para retornar al listado de consultas o dashboard.
+ *   @returns {JSX.Element} Panel de finalización con estadísticas, botones de receta y gestión de seguimiento.
+ * =============================================================================
  */
 const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
+  // Estados locales para la gestión de ventanas modales y confirmaciones
   const [showReprogramModal, setShowReprogramModal] = useState(false);
   const [showConfirmExitModal, setShowConfirmExitModal] = useState(false);
+  // Almacena la confirmación de la sesión creada para retroalimentación en la interfaz
   const [sesionAgendada, setSesionAgendada] = useState(null);
   const [savingCita, setSavingCita] = useState(false);
 
-  // Fecha sugerida: dentro de 7 días
+  /**
+   * Calcula una fecha tentativa por defecto proyectada exactamente a una semana (7 días)
+   * posterior al día en curso, formateada en ISO YYYY-MM-DD.
+   */
   const getFechaSugerida = () => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
+  // Datos del formulario de programación de la siguiente sesión
   const [formData, setFormData] = useState({
     fechaCita: getFechaSugerida(),
     horaInicio: '09:00',
     horaFin: '10:00',
   });
 
+  // Filtra tratamientos que fueron culminados durante la sesión clínica actual
   const hallazgosRealizados = (hallazgos ?? []).filter(h => {
     const st = String(h.estadoPlan || '').toUpperCase();
     return st === 'COMPLETADO' || st === 'FINALIZADO';
   });
 
+  // Filtra procedimientos del plan que aún requieren sesiones posteriores (excluyendo cancelados)
   const hallazgosPendientes = (hallazgos ?? []).filter(h => {
     const st = String(h.estadoPlan || '').toUpperCase();
     return st !== 'COMPLETADO' && st !== 'FINALIZADO' && st !== 'CANCELADO';
   });
 
+  /**
+   * Persiste la creación de una nueva cita médica vinculada al mismo paciente y odontólogo
+   * para dar continuidad a los procedimientos que no fueron concluidos hoy.
+   */
   const handleAgendarSesion = async () => {
     if (!formData.fechaCita || !formData.horaInicio || !formData.horaFin) {
       alertWarning('Completa la fecha y el horario de la próxima cita.');
@@ -73,6 +117,10 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
     }
   };
 
+  /**
+   * Intercepta el retorno al listado general. Si el paciente aún tiene procedimientos
+   * inconclusos y no se ha agendado una sesión de seguimiento, solicita confirmación preventiva.
+   */
   const handleIntentarVolver = () => {
     if (hallazgosPendientes.length > 0 && !sesionAgendada) {
       setShowConfirmExitModal(true);
@@ -81,6 +129,13 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
     }
   };
 
+  /**
+   * Sanitiza caracteres potencialmente conflictivos para prevenir inyecciones de código
+   * al incrustar cadenas dinámicas directamente en la plantilla HTML de impresión.
+   * 
+   * @param {*} str - Valor o cadena a procesar.
+   * @returns {string} Cadena sanitizada con entidades HTML seguras.
+   */
   const escapeHtml = (str) => {
     if (str == null) return '';
     return String(str)
@@ -91,6 +146,11 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
       .replace(/'/g, '&#039;');
   };
 
+  /**
+   * Genera dinámicamente un documento HTML estilizado con el encabezado institucional,
+   * datos del paciente, especialista y la tabla de medicamentos prescritos, abriendo
+   * una ventana temporal del navegador para activar la orden nativa de impresión (window.print).
+   */
   const imprimirReceta = () => {
     const pacienteNombre = escapeHtml(cita.nombreCompletoPaciente || 'Paciente');
     const pacienteDui    = escapeHtml(cita.numeroIdentidadPaciente || 'No especificado');
@@ -177,6 +237,7 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver }) => {
       </html>
     `;
 
+    // Abre una ventana en blanco y escribe el HTML para disparar la impresión del SO
     const nuevaVentana = window.open('', '_blank');
     if (nuevaVentana) {
       nuevaVentana.document.write(contenido);

@@ -1,7 +1,47 @@
-// Hook useAgenda: estado + CRUD de citas, pacientes y odontólogos
-// aca se importan los servicios y utils necesarios para manejar la agenda de citas, incluyendo funciones para obtener, crear, actualizar y cancelar citas,
-// así como para manejar pacientes y odontólogos. También se definen constantes y funciones auxiliares para formatear fechas y horas, y para mostrar alertas al usuario. 
-// El hook devuelve un objeto con el estado de la agenda y las funciones necesarias para interactuar con ella desde los componentes que lo utilicen.
+/**
+ * Propósito:
+ * Hook de gestión integral de la agenda clínica y calendario de citas odontológicas.
+ * Orquesta la recuperación asíncrona concurrente de citas, pacientes y odontólogos,
+ * ejecuta la regla de sincronización automática de citas vencidas (cambio a NO_ASISTIO),
+ * deriva colecciones memoizadas por fecha y provee operaciones transaccionales para
+ * crear, actualizar, cancelar con justificación, reprogramar y registrar check-in en sala de espera.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/hooks/useAgenda.js'. Hook de lógica de negocio dentro de la capa de hooks
+ * personalizados del módulo de agenda.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/views/AppointmentPage.jsx'
+ * - Consume:
+ *   - 'src/services/cita.service.js' ('getCitas', 'createCita', 'updateCita', 'cancelarCita', 'cambiarEstado')
+ *   - 'src/services/paciente.service.js' ('getPacientes')
+ *   - 'src/services/usuario.service.js' ('getOdontologos')
+ *   - 'src/utils/cita.utils.js' ('normalizarFecha', 'formatDT', 'formatFechaHeader', 'formatHora', 'getEstadoConfig', 'sincronizarCitasVencidas')
+ *   - 'src/utils/alert.utils.js' ('alertSuccess', 'alertError', 'alertWarning', 'promptMotivoCancelacion')
+ *
+ * Parámetros y Retornos:
+ * @param {Date} date - Instancia de objeto Date que representa el día seleccionado en el calendario interactivo.
+ * @returns {Object} Estado de la agenda y métodos de interacción transaccional:
+ *   - appointments {Array<Object>}: Lista global de citas médicas sincronizadas.
+ *   - loading {boolean}: Estado de procesamiento asíncrono o petición en red.
+ *   - pacientes {Array<Object>}: Catálogo general de pacientes para asignación.
+ *   - odontologos {Array<Object>}: Catálogo de profesionales odontólogos disponibles.
+ *   - selectedCita {Object|null}: Cita actualmente enfocada para edición o reprogramación.
+ *   - setSelectedCita {Function}: Mutador de cita seleccionada.
+ *   - isEditing {boolean}: Bandera que distingue el modo de guardado (creación vs edición).
+ *   - formData {Object}: Estado controlado de los campos del formulario de cita.
+ *   - citasDelDia {Array<Object>}: Citas pertenecientes estrictamente a la fecha seleccionada.
+ *   - citasPorFecha {Object}: Mapa agrupado indexado por clave 'YYYY-MM-DD'.
+ *   - handleChange {Function}: Manejador de cambios en inputs de formulario.
+ *   - prepararNuevaCita {Function}: Reinicia el formulario para agendar una nueva cita.
+ *   - prepararEditarCita {Function}: Carga los datos de una cita existente en el formulario.
+ *   - handleCancelar {Function}: Solicita motivo y cancela la cita.
+ *   - handleReprogramar {Function}: Actualiza fecha y horario de una cita existente.
+ *   - handleCheckIn {Function}: Transiciona la cita a PENDIENTE (recepción en sala).
+ *   - handleDeshacerCheckIn {Function}: Revierte la cita a PROGRAMADA.
+ *   - handleSubmit {Function}: Despacha el guardado (crear o actualizar) según isEditing.
+ */
 
 import { useState, useEffect, useMemo } from 'react';
 import {
@@ -20,9 +60,10 @@ import {
   promptMotivoCancelacion, alertWarning,
 } from '../utils/alert.utils';
 
-// Re-exportar helpers para los componentes que los necesitan
+// Re-exportación de funciones auxiliares para evitar importaciones duplicadas en vistas consumidoras
 export { normalizarFecha, formatHora, formatFechaHeader, formatDT, getEstadoConfig, sincronizarCitasVencidas };
 
+// Estructura base para el formulario de citas
 const FORM_INICIAL = {
   idPaciente:     '',
   idOdontologo:   '',
@@ -32,10 +73,6 @@ const FORM_INICIAL = {
   estadoCita:     'PROGRAMADA',
 };
 
-/**
- * Hook de agenda: estado + CRUD de citas, pacientes y odontólogos.
- * @param {Date} date - Fecha seleccionada en el calendario
- */
 export const useAgenda = (date) => {
   const [appointments, setAppointments] = useState([]);
   const [pacientes,    setPacientes]    = useState([]);
@@ -45,17 +82,22 @@ export const useAgenda = (date) => {
   const [isEditing,    setIsEditing]    = useState(false);
   const [formData,     setFormData]     = useState(FORM_INICIAL);
 
-  // ── Carga inicial ──────────────────────────────────────────────────────────
+  // Inicialización de datos al montar el componente
   useEffect(() => {
     fetchAll();
   }, []);
 
+  /**
+   * Carga concurrente de citas, pacientes y odontólogos para optimizar el tiempo de respuesta inicial.
+   * Ejecuta inmediatamente la sincronización de citas pasadas no atendidas.
+   */
   const fetchAll = async () => {
     setLoading(true);
     try {
       const [citas, pacs, odont] = await Promise.all([
         getCitas(), getPacientes(), getOdontologos(),
       ]);
+      // Sincroniza citas cuya fecha expiró sin registrarse asistencia, actualizándolas a NO_ASISTIO
       const citasSync = await sincronizarCitasVencidas(citas ?? [], cambiarEstado);
       setAppointments(citasSync);
       setPacientes(pacs    ?? []);
@@ -67,6 +109,9 @@ export const useAgenda = (date) => {
     }
   };
 
+  /**
+   * Recarga exclusivamente el conjunto de citas para reflejar mutaciones en la agenda
+   */
   const refetchCitas = async () => {
     try {
       const citas = await getCitas();
@@ -77,14 +122,16 @@ export const useAgenda = (date) => {
     }
   };
 
-  // ── Datos derivados (memoizados) ───────────────────────────────────────────
+  // Formateo de fecha de referencia en formato ISO estándar YYYY-MM-DD
   const fechaSeleccionada = date.toISOString().split('T')[0];
 
+  // Filtro memoizado de citas correspondientes al día seleccionado en la vista
   const citasDelDia = useMemo(() =>
     appointments.filter(a => normalizarFecha(a.fechaCita) === fechaSeleccionada),
     [appointments, fechaSeleccionada],
   );
 
+  // Mapa de agregación para visualización en calendarios mensuales o semanales
   const citasPorFecha = useMemo(() =>
     appointments.reduce((acc, a) => {
       const key = normalizarFecha(a.fechaCita);
@@ -95,13 +142,18 @@ export const useAgenda = (date) => {
     [appointments],
   );
 
-  // ── Preparacion de formulario ────────────────────────────────────────────────────
+  /**
+   * Prepara el estado del formulario para registrar una nueva cita en la fecha seleccionada
+   */
   const prepararNuevaCita = () => {
     setIsEditing(false);
     setSelectedCita(null);
     setFormData({ ...FORM_INICIAL, fechaCita: fechaSeleccionada });
   };
 
+  /**
+   * Inicializa el formulario con los valores existentes de una cita seleccionada para edición
+   */
   const prepararEditarCita = (cita) => {
     setIsEditing(true);
     setSelectedCita(cita);
@@ -115,17 +167,22 @@ export const useAgenda = (date) => {
     });
   };
 
+  /**
+   * Manejador genérico para mutaciones en campos controlados
+   */
   const handleChange = (e) =>
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
-  // ── CRUD ───────────────────────────────────────────────────────────────────
+  /**
+   * Orquesta la persistencia de una cita (creación o actualización)
+   */
   const handleSubmit = async (onSuccess) => {
     setLoading(true);
     try {
       const payload = {
         ...formData,
-        idPaciente:   parseInt(formData.idPaciente),
-        idOdontologo: parseInt(formData.idOdontologo),
+        idPaciente:   parseInt(formData.idPaciente, 10),
+        idOdontologo: parseInt(formData.idOdontologo, 10),
       };
       if (isEditing) {
         await updateCita(selectedCita.idCitas, payload);
@@ -143,9 +200,12 @@ export const useAgenda = (date) => {
     }
   };
 
+  /**
+   * Proceso de cancelación con captura modal obligatoria de justificación clínica o administrativa
+   */
   const handleCancelar = async (cita) => {
     const motivo = await promptMotivoCancelacion(cita.nombreCompletoPaciente);
-    if (!motivo) return;
+    if (!motivo) return; // Si el usuario cancela el diálogo modal
     setLoading(true);
     try {
       await cancelarCita(cita.idCitas, motivo);
@@ -158,6 +218,9 @@ export const useAgenda = (date) => {
     }
   };
 
+  /**
+   * Reprograma una cita existente actualizando fechas y restableciendo su estado a PROGRAMADA
+   */
   const handleReprogramar = async (idCita, reprogramData, onSuccess) => {
     const { fechaCita, horaInicioCita, horaFinCita } = reprogramData;
     if (!fechaCita || !horaInicioCita || !horaFinCita) {
@@ -182,6 +245,9 @@ export const useAgenda = (date) => {
     }
   };
 
+  /**
+   * Registra el arribo físico del paciente a la clínica, pasando la cita al estado PENDIENTE
+   */
   const handleCheckIn = async (cita) => {
     setLoading(true);
     try {
@@ -195,6 +261,9 @@ export const useAgenda = (date) => {
     }
   };
 
+  /**
+   * Revierte el check-in si fue ejecutado por equivocación, regresando al estado PROGRAMADA
+   */
   const handleDeshacerCheckIn = async (cita) => {
     setLoading(true);
     try {
@@ -224,3 +293,4 @@ export const useAgenda = (date) => {
     handleSubmit,
   };
 };
+

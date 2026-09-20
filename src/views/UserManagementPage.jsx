@@ -6,6 +6,10 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
 
+/**
+ * Mapa de estilos visuales para los distintivos de rol en la lista maestra.
+ * Asigna una paleta cromática diferenciada según el nivel de privilegios.
+ */
 const ROLE_BADGES = {
   ADMIN:         'bg-purple-50 text-purple-700 ring-1 ring-purple-200/60',
   ODONTOLOGO:    'bg-sky-50 text-sky-700 ring-1 ring-sky-200/60',
@@ -14,15 +18,49 @@ const ROLE_BADGES = {
 };
 
 /**
- * Página de administración de usuarios y personal de la clínica.
+ * =============================================================================
+ * VISTA: UserManagementPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Administración centralizada de usuarios, colaboradores y control de acceso basado
+ *   en roles (RBAC) para el personal de la clínica dental.
+ *   Utiliza el patrón de arquitectura de interfaz Maestro-Detalle:
+ *   - Maestro (Izquierda): Listado del personal con iniciales, rol institucional,
+ *     nombre de usuario y estado (activo/inactivo).
+ *   - Detalle (Derecha): Formulario reactivo para alta o modificación de credenciales,
+ *     gestión de contraseñas (opcional en actualización), asignación de rol en el sistema,
+ *     captura de licencia profesional (JVPO y especialidad médica para odontólogos)
+ *     y activación/desactivación de cuentas.
+ * 
+ * Ubicación y Rol:
+ *   src/views/UserManagementPage.jsx
+ *   Capa de Vistas / Páginas de Administración de Personal (Ruta protegida: /usuarios).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Asociado a la ruta "/usuarios" restringido a ADMIN y GERENTE).
+ *   - Consume:
+ *     * src/hooks/useUserManagement.js (Hook de gestión de usuarios, roles y CRUD).
+ *     * src/components/ui/Button.jsx (Botones de acción, guardado y desactivación).
+ *     * src/components/ui/AvatarBadge.jsx (Iniciales de avatar con indicador de estado).
+ *     * src/components/ui/Input.jsx (Campos de texto para nombres, credenciales y contraseñas).
+ *     * src/components/ui/Select.jsx (Selector de rol institucional).
+ *     * src/components/ui/LoadingSpinner.jsx (Spinners y estado vacío de personal).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Panel de gestión administrativa de usuarios y roles.
+ * =============================================================================
  */
 const UserManagementPage = () => {
+  // Desestructura estado, colecciones de catálogo y manejadores desde el hook
   const {
     users, roles, selectedId, formData, loading, isEditing,
     handleSelect, handleChange,
     handleSubmit, handleCancel, handleDelete,
   } = useUserManagement();
 
+  // Determina si el rol actualmente seleccionado corresponde al perfil clínico odontológico
   const rolSeleccionado = roles.find(r => String(r.idRol) === String(formData.idRol));
   const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
 

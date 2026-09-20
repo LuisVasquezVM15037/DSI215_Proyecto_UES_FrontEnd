@@ -1,44 +1,48 @@
-// ============================================================================
-//  App.jsx — Configuración central de rutas de DentalCare
-// ============================================================================
+/**
+ * Propósito:
+ * Componente raíz y enrutador declarativo central de la aplicación DentalCare.
+ * Configura la topología de navegación mediante React Router DOM, aplica técnicas de optimización
+ * de rendimiento mediante división de código (code splitting con React.lazy y Suspense) y
+ * establece el perímetro de seguridad encapsulando vistas privadas dentro de los guards de autorización.
+ *
+ * Ubicación y Rol:
+ * Capa de Enrutamiento y Composición Principal (src/App.jsx).
+ * Orquesta la estructura de páginas y la jerarquía de layouts del sistema.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde: src/main.jsx (punto de entrada montado en el DOM).
+ * - Consume:
+ *   - react-router-dom (BrowserRouter, Routes, Route)
+ *   - src/components/ProtectedRoute.jsx (Guard de autenticación y roles)
+ *   - src/components/Layout.jsx (Shell maestro con sidebar y header)
+ *   - src/components/ui/LoadingScreen.jsx (Fallback visual de carga de chunks)
+ *   - src/constants/roles.constants.js (ROLES)
+ *   - Vistas dinámicas (LoginPage, DashboardPage, AppointmentPage, etc.)
+ */
 
-// Imports ───────────────────────────────────────────────────────────────
-
-// React core
 import { lazy, Suspense } from 'react';
-
-// Enrutamiento
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-
-// Guard y layout compartido
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import LoadingScreen from './components/ui/LoadingScreen';
-
-// Constantes
 import { ROLES } from './constants/roles.constants';
-
-// Vista con carga ansiosa (eager) — PBI "Revisar accesos".
-
 import AccessReviewPage from './views/AccessReviewPage';
 
-/**
- * Vistas con carga diferida (lazy):
- * cada módulo genera su propio chunk en el build, de modo que el bundle inicial
- * solo carga el LoginPage + el shell de la aplicación (Layout y guards).
- */
-const LoginPage = lazy(() => import('./views/LoginPage'));
-const DashboardPage = lazy(() => import('./views/DashboardPage'));
-const AppointmentPage = lazy(() => import('./views/AppointmentPage'));
-const PatientManagementPage = lazy(() => import('./views/PatientManagementPage'));
-const UserManagementPage = lazy(() => import('./views/UserManagementPage'));
-const ConsultaIndexPage = lazy(() => import('./views/ConsultaIndexPage'));
+// Carga diferida (Code Splitting): Cada módulo de vista se compila en un chunk independiente,
+// reduciendo el peso de transferencia inicial y optimizando el First Contentful Paint (FCP)
+const LoginPage              = lazy(() => import('./views/LoginPage'));
+const DashboardPage          = lazy(() => import('./views/DashboardPage'));
+const AppointmentPage        = lazy(() => import('./views/AppointmentPage'));
+const PatientManagementPage  = lazy(() => import('./views/PatientManagementPage'));
+const UserManagementPage     = lazy(() => import('./views/UserManagementPage'));
+const ConsultaIndexPage      = lazy(() => import('./views/ConsultaIndexPage'));
 const ActiveConsultationPage = lazy(() => import('./views/ActiveConsultationPage'));
 
-// Componentes auxiliares ─────────────────────────────────────────────────
-
 /**
- * Vista de respaldo (404) que se muestra cuando ninguna ruta coincide.
+ * Propósito:
+ * Componente visual de respaldo renderizado cuando la URL solicitada no coincide con ninguna ruta declarada (HTTP 404).
+ *
+ * @returns {JSX.Element} Vista de recurso no encontrado.
  */
 const NotFound = () => (
   <div className="flex flex-col items-center justify-center h-full py-20 gap-4 animate-fade-in text-center px-4">
@@ -53,15 +57,19 @@ const NotFound = () => (
 );
 
 /**
- * Envoltura de conveniencia sobre <ProtectedRoute> para evitar repetir el
- * wrapper en cada ruta restringida por rol.
+ * Propósito:
+ * Envoltura de conveniencia (Higher-Order Component funcional) que encapsula <ProtectedRoute>
+ * preconfigurando el arreglo de roles facultados para simplificar la declaración del árbol de rutas.
  *
- * @param {string[]}  roles    Lista de roles autorizados para la ruta.
- * @param {ReactNode} children Vista a renderizar si el rol del usuario es válido.
+ * @param {Object} props - Propiedades de la ruta restringida.
+ * @param {string[]} props.roles - Colección de roles autorizados.
+ * @param {React.ReactNode} props.children - Vista o elemento a proteger.
+ * @returns {JSX.Element}
  */
 const RoleRoute = ({ roles, children }) => (
   <ProtectedRoute allowedRoles={roles}>{children}</ProtectedRoute>
 );
+
 
 //Árbol de rutas ──────────────────────────────────────────────────────────
 

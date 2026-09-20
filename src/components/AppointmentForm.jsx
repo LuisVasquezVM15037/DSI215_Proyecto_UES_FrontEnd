@@ -1,3 +1,38 @@
+/**
+ * Propósito:
+ * Componente de formulario para la creación y modificación de citas odontológicas.
+ * Proporciona campos controlados para asignación de paciente, odontólogo especialista,
+ * fecha de atención, hora de inicio y cálculo automatizado de la hora de finalización
+ * (duración predeterminada de 1 hora en tiempo local), así como modificación del estado
+ * clínico en modalidad de edición.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/AppointmentForm.jsx'. Componente de formulario de dominio dentro
+ * de la capa de componentes de presentación del módulo de agenda.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/views/AppointmentPage.jsx'
+ * - Consume:
+ *   - 'src/constants/estados.constants.js' ('ESTADOS_CITA_OPCIONES')
+ *   - 'src/components/ui/Button.jsx'
+ *   - 'src/components/ui/Input.jsx'
+ *   - 'src/components/ui/Select.jsx'
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del formulario.
+ * @param {boolean} props.isEditing - Bandera que determina si se edita una cita existente o se crea una nueva.
+ * @param {Date} props.date - Fecha actualmente seleccionada en el calendario.
+ * @param {Object} props.formData - Estado controlado de los valores del formulario.
+ * @param {Array<Object>} props.pacientes - Catálogo de pacientes disponibles para selección.
+ * @param {Array<Object>} props.odontologos - Catálogo de profesionales odontólogos disponibles.
+ * @param {boolean} props.loading - Indicador de procesamiento o persistencia activa.
+ * @param {(e: React.ChangeEvent<any>) => void} props.onChange - Manejador de cambios en los campos del formulario.
+ * @param {() => void} props.onSubmit - Callback para confirmar el guardado o actualización de la cita.
+ * @param {() => void} props.onCancelar - Callback para descartar cambios y retornar a la vista de agenda.
+ * @returns {JSX.Element} Formulario estilizado de alta/edición de citas médicas.
+ */
+
 import React from 'react';
 import { ESTADOS_CITA_OPCIONES } from '../constants/estados.constants';
 import Button from './ui/Button';
@@ -5,8 +40,11 @@ import Input from './ui/Input';
 import Select from './ui/Select';
 
 /**
- * Suma 1 hora a un valor de <input type="datetime-local"> ("YYYY-MM-DDTHH:mm")
- * y lo devuelve en el mismo formato y en hora LOCAL.
+ * Función pura que calcula la hora de finalización sumando exactamente 1 hora
+ * al valor de entrada datetime-local ("YYYY-MM-DDTHH:mm") preservando la hora local.
+ *
+ * @param {string} horaInicio - Cadena de fecha-hora local en formato ISO parcial.
+ * @returns {string} Cadena en formato datetime-local con 1 hora incrementada.
  */
 const calcularHoraFin = (horaInicio) => {
   if (!horaInicio) return '';
@@ -18,9 +56,6 @@ const calcularHoraFin = (horaInicio) => {
     + `T${pad(fin.getHours())}:${pad(fin.getMinutes())}`;
 };
 
-/**
- * Formulario de creación/edición de cita usando las primitivas UI estandarizadas.
- */
 const AppointmentForm = ({
   isEditing,
   date,
@@ -32,6 +67,9 @@ const AppointmentForm = ({
   onSubmit,
   onCancelar,
 }) => {
+  /**
+   * Manejador específico para la hora de inicio que recalcula automáticamente la hora de finalización
+   */
   const handleHoraInicioChange = (e) => {
     onChange(e);
     onChange({ target: { name: 'horaFinCita', value: calcularHoraFin(e.target.value) } });
@@ -39,7 +77,7 @@ const AppointmentForm = ({
 
   return (
     <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 animate-fade-in">
-      {/* Encabezado */}
+      {/* Encabezado descriptivo con botón de retorno */}
       <div className="flex items-center justify-between pb-5 border-b border-slate-100 mb-5">
         <div>
           <h5 className="font-bold text-slate-800 text-base">
@@ -60,7 +98,7 @@ const AppointmentForm = ({
       </div>
 
       <div className="space-y-4">
-        {/* Paciente */}
+        {/* Selector de Paciente */}
         <Select
           label="Paciente"
           required
@@ -76,7 +114,7 @@ const AppointmentForm = ({
           ))}
         </Select>
 
-        {/* Odontólogo */}
+        {/* Selector de Odontólogo Especialista */}
         <Select
           label="Odontólogo a cargo"
           required
@@ -92,7 +130,7 @@ const AppointmentForm = ({
           ))}
         </Select>
 
-        {/* Fecha */}
+        {/* Campo de Fecha de la Cita */}
         <Input
           type="date"
           label="Fecha de la Cita"
@@ -102,7 +140,7 @@ const AppointmentForm = ({
           onChange={onChange}
         />
 
-        {/* Horarios */}
+        {/* Definición de Horarios (Inicio y Fin automático) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             type="datetime-local"
@@ -126,7 +164,7 @@ const AppointmentForm = ({
           </div>
         </div>
 
-        {/* Estado (solo en edición) */}
+        {/* Selector de Estado clínico visible únicamente durante la edición */}
         {isEditing && (
           <Select
             label="Estado de la Cita"
@@ -140,7 +178,7 @@ const AppointmentForm = ({
           </Select>
         )}
 
-        {/* Acciones */}
+        {/* Botonera de acciones */}
         <div className="flex gap-3 pt-3 border-t border-slate-100">
           <Button variant="secondary" fullWidth onClick={onCancelar} disabled={loading}>
             Cancelar

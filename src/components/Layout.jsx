@@ -1,12 +1,34 @@
+/**
+ * Propósito:
+ * Componente estructural envolvente principal (Layout Shell) de la aplicación.
+ * Provee la barra de navegación lateral fija (Sidebar) con filtrado reactivo de opciones
+ * según el rol clínico/administrativo del usuario autenticado, y el encabezado superior (Header)
+ * con identificación de usuario, fecha localizada y menú desplegable para cierre de sesión seguro.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/Layout.jsx'. Orquestador estructural dentro de la capa de componentes
+ * de presentación y enrutamiento visual.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/App.jsx' (como elemento base que envuelve a todas las subrutas protegidas mediante <Outlet />).
+ * - Consume:
+ *   - React Router ('useNavigate', 'useLocation', 'Outlet')
+ *   - 'src/services/auth.service.js' ('getUserName', 'getUserRole', 'clearSession')
+ *   - 'src/utils/alert.utils.js' ('confirmDialog')
+ *   - 'src/constants/roles.constants.js' ('ROLES', 'normalizeRole')
+ *
+ * Parámetros y Retornos:
+ * @returns {JSX.Element} Estructura contenedor con sidebar, header y viewport de contenido renderizable.
+ */
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { getUserName, getUserRole, clearSession } from '../services/auth.service';
 import { confirmDialog } from '../utils/alert.utils';
 import { ROLES, normalizeRole } from '../constants/roles.constants';
 
-/**
- * Configuración central de rutas para la barra lateral con roles autorizados e iconos.
- */
+// Configuración de elementos del menú lateral con control de acceso basado en roles (RBAC)
 const NAV_ITEMS = [
   {
     path:  '/dashboard',
@@ -45,23 +67,23 @@ const NAV_ITEMS = [
   },
 ];
 
-/**
- * Layout principal moderno con barra lateral interactiva y encabezado clínico.
- */
 const Layout = () => {
   const navigate  = useNavigate();
   const location  = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef   = useRef(null);
 
+  // Extracción y normalización de la identidad y permisos del usuario desde el token JWT
   const userName = useMemo(() => getUserName(), []);
   const userRole = useMemo(() => normalizeRole(getUserRole()), []);
 
+  // Derivación de iniciales para el avatar en base al nombre completo
   const initials = useMemo(() =>
     userName.split(' ').map(w => w[0]?.toUpperCase() ?? '').slice(0, 2).join(''),
     [userName],
   );
 
+  // Fecha actual formateada en lenguaje español
   const todayFormatted = useMemo(() => {
     return new Date().toLocaleDateString('es-ES', {
       weekday: 'long',
@@ -70,6 +92,7 @@ const Layout = () => {
     });
   }, []);
 
+  // Cierre automático del menú desplegable al hacer clic fuera del contenedor (click-outside listener)
   useEffect(() => {
     const handler = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
@@ -78,6 +101,9 @@ const Layout = () => {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  /**
+   * Cierre seguro de sesión con diálogo de confirmación y eliminación de tokens
+   */
   const handleLogout = async () => {
     setMenuOpen(false);
     const confirmed = await confirmDialog('¿Cerrar sesión?', '¿Estás seguro que deseas salir del sistema?', 'Sí, salir');
@@ -85,6 +111,7 @@ const Layout = () => {
     clearSession();
     navigate('/');
   };
+
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-surface">

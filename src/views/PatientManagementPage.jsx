@@ -8,9 +8,43 @@ import Textarea from '../components/ui/Textarea';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
 
 /**
- * Página de gestión de expedientes clínicos de pacientes (Patrón Maestro-Detalle).
+ * =============================================================================
+ * VISTA: PatientManagementPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Gestión integral de expedientes clínicos de pacientes siguiendo la arquitectura
+ *   de interfaz Maestro-Detalle (Master-Detail).
+ *   - Panel Maestro (Lateral): Proporciona un listado reactivo con búsqueda en tiempo
+ *     real (por nombre completo o documento DUI), avatares con iniciales automáticas,
+ *     conteo de expedientes totales y botón para conmutar a nuevo registro.
+ *   - Panel Detalle (Principal): Despliega el formulario de administración estructurado
+ *     en tres bloques semánticos: datos de identificación personal, canales de contacto
+ *     y alertas médicas/alergias preexistentes (fundamentales para la seguridad clínica).
+ *   Soporta creación, actualización y baja lógica de pacientes integrando confirmaciones nativas.
+ * 
+ * Ubicación y Rol:
+ *   src/views/PatientManagementPage.jsx
+ *   Capa de Vistas / Páginas de Gestión de Pacientes (Ruta protegida: /pacientes).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Asociado a la ruta "/pacientes" envuelto por ProtectedRoute y Layout).
+ *   - Consume:
+ *     * src/hooks/usePatientManagement.js (Hook orquestador de estado, CRUD y validaciones).
+ *     * src/components/ui/SearchInput.jsx (Caja de búsqueda con limpieza rápida).
+ *     * src/components/ui/Button.jsx (Botones de comando y estados de carga).
+ *     * src/components/ui/AvatarBadge.jsx (Iniciales de avatar para cada paciente).
+ *     * src/components/ui/Input.jsx (Entradas de texto, fecha, teléfono y DUI).
+ *     * src/components/ui/Textarea.jsx (Área de texto para alergias y condiciones).
+ *     * src/components/ui/LoadingSpinner.jsx (Spinners y vistas de lista vacía).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Interfaz maestro-detalle para administración de expedientes.
+ * =============================================================================
  */
 const PatientManagementPage = () => {
+  // Desestructura el estado de la colección, formulario y manejadores del hook especializado
   const {
     patients, selectedId, formData, loading, isEditing,
     searchTerm, setSearchTerm,

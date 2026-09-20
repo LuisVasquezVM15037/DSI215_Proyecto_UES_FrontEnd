@@ -1,3 +1,45 @@
+/**
+ * Propósito:
+ * Hook orquestador del estado y ciclo de vida de la consulta odontológica activa.
+ * Administra los datos clínicos de la cita, la ficha de evaluación (diagnóstico y observaciones),
+ * y la lista de hallazgos del odontograma (planes de tratamiento). Controla las actualizaciones
+ * optimistas de estado, la normalización de importes monetarios y la regla de negocio para
+ * la finalización de la cita médica según los hallazgos ejecutados.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/hooks/useConsultaData.js'. Hook principal de lógica de negocio dentro del
+ * subsistema de atención clínica.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/views/ActiveConsultationPage.jsx'
+ * - Consume:
+ *   - 'src/services/cita.service.js' ('getCitaById', 'cambiarEstado')
+ *   - 'src/services/consulta.service.js' ('getEvaluacionByCita', 'createEvaluacion', 'getHallazgos', 'updateEstadoHallazgo', 'deleteHallazgo')
+ *   - 'src/utils/cita.utils.js' ('getPrecioHallazgo')
+ *   - 'src/utils/alert.utils.js' ('alertSuccess', 'alertError', 'alertWarning', 'confirmDelete', 'toastSuccess')
+ *
+ * Parámetros y Retornos:
+ * @param {string|number} citaId - Identificador único de la cita clínica en curso.
+ * @returns {Object} Estado clínico de la consulta y manejadores de acción:
+ *   - cita {Object|null}: Información integral de la cita médica activa.
+ *   - setCita {Function}: Mutador del estado de la cita.
+ *   - loading {boolean}: Estado de carga inicial de cita y evaluación.
+ *   - evaluacion {Object|null}: Registro de evaluación clínica asociado a la cita.
+ *   - diagnostico {string}: Texto descriptivo del diagnóstico clínico emitido.
+ *   - setDiagnostico {Function}: Mutador del texto de diagnóstico.
+ *   - observaciones {string}: Anotaciones o comentarios adicionales del profesional.
+ *   - setObservaciones {Function}: Mutador del texto de observaciones.
+ *   - savingEval {boolean}: Bandera indicadora de persistencia en progreso de la evaluación.
+ *   - hallazgos {Array<Object>}: Lista de procedimientos/hallazgos registrados en el odontograma.
+ *   - setHallazgos {Function}: Mutador manual de la lista de hallazgos.
+ *   - fetchHallazgos {Function}: Función para recargar los hallazgos desde el backend.
+ *   - handleGuardarEvaluacion {Function}: Registra la evaluación clínica en el servidor.
+ *   - handleCambiarEstado {Function}: Modifica el estado de un hallazgo mediante actualización optimista.
+ *   - handleEliminarHallazgo {Function}: Elimina un hallazgo tras confirmación modal del usuario.
+ *   - handleFinalizarConsulta {Function}: Evalúa cumplimiento de tratamientos y finaliza la cita.
+ */
+
 import { useState, useEffect } from 'react';
 import { getCitaById, cambiarEstado } from '../services/cita.service';
 import {
@@ -5,39 +47,36 @@ import {
   getHallazgos, updateEstadoHallazgo, deleteHallazgo,
 } from '../services/consulta.service';
 import { alertSuccess, alertError, alertWarning, confirmDelete, toastSuccess } from '../utils/alert.utils';
-
 import { getPrecioHallazgo } from '../utils/cita.utils';
 
-/**
- * Hook principal de la consulta activa.
- * Gestiona: cita, evaluación clínica y hallazgos del odontograma.
- */
 export const useConsultaData = (citaId) => {
-  const [cita,         setCita]         = useState(null);
-  const [loading,      setLoading]      = useState(true);
-  const [evaluacion,   setEvaluacion]   = useState(null);
-  const [diagnostico,  setDiagnostico]  = useState('');
-  const [observaciones,setObservaciones]= useState('');
-  const [savingEval,   setSavingEval]   = useState(false);
-  const [hallazgos,    setHallazgos]    = useState([]);
+  const [cita,          setCita]          = useState(null);
+  const [loading,       setLoading]       = useState(true);
+  const [evaluacion,    setEvaluacion]    = useState(null);
+  const [diagnostico,   setDiagnostico]   = useState('');
+  const [observaciones, setObservaciones] = useState('');
+  const [savingEval,    setSavingEval]    = useState(false);
+  const [hallazgos,     setHallazgos]     = useState([]);
 
-  // ── Carga inicial ──────────────────────────────────────────────────────────
+  // Carga inicial de datos de la cita y su evaluación clínica
   useEffect(() => {
     if (!citaId) return;
     loadCita();
   }, [citaId]);
 
-  // Cuando hay evaluación, cargar sus hallazgos
+  // Carga reactiva de los hallazgos asociados al confirmarse una evaluación clínica
   useEffect(() => {
     if (evaluacion?.idEvaluacionClinica) {
       fetchHallazgos(evaluacion.idEvaluacionClinica);
     }
   }, [evaluacion]);
 
+  /**
+   * Recupera la cita específica mediante consulta directa por ID para prevenir descargas masivas
+   */
   const loadCita = async () => {
     setLoading(true);
     try {
-      // FIX BUG-09: pedir solo la cita por ID, no todas
       const data = await getCitaById(citaId);
       setCita(data);
       await loadEvaluacion();
@@ -48,19 +87,25 @@ export const useConsultaData = (citaId) => {
     }
   };
 
+  /**
+   * Consulta si existe una evaluación clínica previa para precargar diagnóstico y observaciones
+   */
   const loadEvaluacion = async () => {
     try {
       const data = await getEvaluacionByCita(citaId);
       if (data) {
         setEvaluacion(data);
-        setDiagnostico(data.diagnostico   ?? '');
+        setDiagnostico(data.diagnostico     ?? '');
         setObservaciones(data.observaciones ?? '');
       }
     } catch (_) {
-      // Normal que no exista aún — silencioso
+      // Estado normal cuando la consulta apenas inicia y aún no cuenta con evaluación creada
     }
   };
 
+  /**
+   * Obtiene y normaliza los precios de los hallazgos registrados para el odontograma
+   */
   const fetchHallazgos = async (idEvaluacion) => {
     try {
       const data = await getHallazgos(idEvaluacion);
@@ -73,7 +118,9 @@ export const useConsultaData = (citaId) => {
     } catch (_) {}
   };
 
-  // ── Guardar evaluación ────────────────────────────────────────────────────
+  /**
+   * Valida y persiste la evaluación clínica primaria, habilitando el acceso al odontograma
+   */
   const handleGuardarEvaluacion = async (onSuccess) => {
     if (!diagnostico.trim()) {
       alertWarning('El diagnóstico es obligatorio.');
@@ -82,7 +129,9 @@ export const useConsultaData = (citaId) => {
     setSavingEval(true);
     try {
       const data = await createEvaluacion({
-        idCita: parseInt(citaId), diagnostico, observaciones,
+        idCita: parseInt(citaId, 10),
+        diagnostico,
+        observaciones,
       });
       setEvaluacion(data);
       alertSuccess('Evaluación guardada', 'Puedes continuar al odontograma.', 1800);
@@ -94,7 +143,10 @@ export const useConsultaData = (citaId) => {
     }
   };
 
-  // ── Cambiar estado de hallazgo (optimistic update) ────────────────────────
+  /**
+   * Modifica el estado del plan de tratamiento usando una estrategia de actualización optimista
+   * para proporcionar retroalimentación inmediata, revirtiendo en caso de fallo del servidor.
+   */
   const handleCambiarEstado = async (idPlan, nuevoEstado) => {
     const prevHallazgos = hallazgos;
     setHallazgos(prev =>
@@ -105,11 +157,14 @@ export const useConsultaData = (citaId) => {
       toastSuccess('Estado actualizado');
     } catch (err) {
       alertError(err.message);
-      setHallazgos(prevHallazgos); // Revertir
+      // Reversión del estado local al valor previo al producirse un fallo
+      setHallazgos(prevHallazgos);
     }
   };
 
-  // ── Eliminar hallazgo ─────────────────────────────────────────────────────
+  /**
+   * Solicita confirmación explícita y suprime un hallazgo clínico
+   */
   const handleEliminarHallazgo = async (idPlan) => {
     const confirmed = await confirmDelete('este hallazgo');
     if (!confirmed) return;
@@ -121,9 +176,11 @@ export const useConsultaData = (citaId) => {
     }
   };
 
-  // ── Finalizar consulta ────────────────────────────────────────────────────
+  /**
+   * Finaliza la consulta médica. Aplica la regla de negocio que verifica si existieron tratamientos
+   * completados durante la sesión para transicionar la cita global al estado 'FINALIZADA'.
+   */
   const handleFinalizarConsulta = async (onSuccess) => {
-    // Regla de negocio: si se realizó al menos un hallazgo, la consulta pasa a FINALIZADA
     const tieneRealizados = (hallazgos ?? []).some(h => {
       const st = String(h.estadoPlan || '').toUpperCase();
       return st === 'COMPLETADO' || st === 'FINALIZADO';
@@ -155,3 +212,4 @@ export const useConsultaData = (citaId) => {
     handleFinalizarConsulta,
   };
 };
+

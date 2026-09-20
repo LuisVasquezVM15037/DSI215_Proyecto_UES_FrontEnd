@@ -1,55 +1,80 @@
+/**
+ * Propósito:
+ * Componente Guard de seguridad perimetral para rutas protegidas en React Router.
+ * Valida la existencia y vigencia temporal del token JWT en el cliente, y aplica políticas
+ * de autorización basadas en roles (RBAC) restringiendo el acceso a vistas administrativas o médicas.
+ *
+ * Ubicación y Rol:
+ * Capa de Seguridad / Enrutamiento (src/components/ProtectedRoute.jsx).
+ * Interceptor de navegación que condiciona el renderizado de vistas privadas o redirige a login/dashboard.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde: src/App.jsx (envolviendo el Layout raíz y cada Route restringida con RoleRoute).
+ * - Consume:
+ *   - src/constants/roles.constants.js (normalizeRole)
+ *   - src/services/auth.service.js (getUserRole)
+ *   - react-router-dom (Navigate)
+ */
+
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { normalizeRole } from '../constants/roles.constants';
 import { getUserRole } from '../services/auth.service';
 
-/*
- * Decodifica el payload del token JWT y verifica que no haya expirado.
- * Esta función solo verifica la expiración del lado del cliente, no valida la firma (eso es responsabilidad del servidor).
+/**
+ * Propósito:
+ * Decodifica la sección de claims del JWT almacenado y verifica que el tiempo actual no haya rebasado
+ * la marca de expiración Unix (exp). Esta verificación se efectúa exclusivamente en el lado del cliente
+ * para optimizar la experiencia de usuario antes de despachar peticiones de red hacia el servidor.
+ *
+ * @param {string|null} token - Token JWT en formato compacto (header.payload.signature).
+ * @returns {boolean} true si el token posee una estructura válida y no ha expirado; false en caso contrario.
  */
-
-/**  @param  {string} token — Token JWT almacenado en localStorage.
-* @return {boolean}       true si el token existe y no ha expirado, false en caso contrario.
-*/
-
 const isTokenValid = (token) => {
-  // Si no hay token en absoluto, consideramos que no hay sesión activa
   if (!token) return false;
   try {
-    // El JWT tiene 3 partes separadas por '.': header.payload.signature
-    // Tomamos la parte [1] (payload) y la decodificamos desde base64 a JSON
+    // La carga útil del JWT reside en el segundo segmento codificado en Base64URL
     const payload = JSON.parse(atob(token.split('.')[1]));
-    // `exp` es un Unix timestamp en segundos; multiplicamos por 1000 para comparar con Date.now() (ms)
+    // El claim 'exp' se almacena en segundos; se multiplica por 1000 para contrastar con Date.now() en milisegundos
     return payload.exp * 1000 > Date.now();
   } catch {
-    // Si el token tiene formato inválido o falla el parse, lo tratamos como inválido
+    // Ante cualquier error de formato o deserialización se considera la sesión no válida
     return false;
   }
 };
 
 /**
- * Guard de rutas privadas.
- * Si el token no existe o expiró, limpia el storage y redirige al login.
+ * Propósito:
+ * Controla el acceso a las vistas protegidas:
+ * 1. Si no hay sesión válida o el token expiró, limpia el almacenamiento y redirige al Login ('/').
+ * 2. Si el rol del usuario no está autorizado para la ruta, lo redirige al Dashboard principal ('/dashboard').
+ * 3. Si cumple con los requerimientos de autenticación y rol, renderiza los componentes hijos protegidos.
+ *
+ * @param {Object} props - Propiedades del componente.
+ * @param {React.ReactNode} props.children - Componentes o vistas protegidas a renderizar.
+ * @param {string[]} [props.allowedRoles] - Lista opcional de roles facultados para acceder a la ruta.
+ * @returns {JSX.Element} Componente hijo autorizado o componente <Navigate> de redirección segura.
  */
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const token         = localStorage.getItem('authToken');
   const authenticated = isTokenValid(token);
-  // Se obtiene el rol validado directamente desde el payload del JWT firmado
+  // Se obtiene el rol validado directamente desde el payload del JWT firmado por el backend
   const userRole      = normalizeRole(getUserRole());
 
-  // Si el usuario no está autenticado, se limpia el localStorage y se redirige al login.
   if (!authenticated) {
-    // Limpia cualquier dato de sesión almacenado (como el token) para asegurar que no queden datos obsoletos.
-    localStorage.clear(); 
-    // Redirige al usuario a la página de inicio de sesión. El prop `replace` asegura que esta redirección reemplace la entrada actual en el historial del navegador, evitando que el usuario pueda volver a la ruta protegida usando el botón "Atrás".
+    // Se purgan credenciales residuales para evitar estados inconsistentes
+    localStorage.clear();
+    // La propiedad replace sobreescribe la entrada actual en el historial de navegación para bloquear el botón "Atrás"
     return <Navigate to="/" replace />;
   }
-   /// FRAGMENTO AGREGADO PARA PBI REVISAR ACCESOS: VERIFICA SI EL USUARIO TIENE LOS ROLES PERMITIDOS PARA ACCEDER A LA RUTA ACTUAL 
+
+  // Verificación de lista de control de acceso basada en roles (RBAC)
   if (allowedRoles && !allowedRoles.includes(String(userRole).toLowerCase())) {
-  return <Navigate to="/dashboard" replace />;
-}
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return children;
 };
 
 export default ProtectedRoute;
+

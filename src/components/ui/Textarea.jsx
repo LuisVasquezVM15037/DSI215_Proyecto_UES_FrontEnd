@@ -1,8 +1,40 @@
+/**
+ * Propósito:
+ * Componente atómico de entrada multilínea (HTML textarea) con diseño uniforme,
+ * soporte para etiquetas accesibles, estados de validación por error, texto de ayuda
+ * y referencia vinculable mediante React forwardRef.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/ui/Textarea.jsx'. Primitiva de formulario dentro de la capa
+ * de componentes de presentación base.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/components/AppointmentForm.jsx'
+ *   - 'src/components/ReprogramModal.jsx'
+ *   - 'src/components/StepEvaluacion.jsx'
+ *   - 'src/components/StepCierre.jsx'
+ *   - 'src/components/StepPrescripcion.jsx'
+ *   - 'src/views/PatientManagementPage.jsx'
+ * - Consume:
+ *   - React ('forwardRef').
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del campo multilínea.
+ * @param {string} [props.label] - Etiqueta descriptiva del campo.
+ * @param {string} [props.error] - Mensaje de error para activar estados visuales de validación fallida.
+ * @param {string} [props.helperText] - Texto descriptivo o instructivo complementario.
+ * @param {boolean} [props.required] - Si es true, añade indicador de campo requerido (*).
+ * @param {string} [props.id] - Identificador único para enlazar label y textarea.
+ * @param {number} [props.rows=3] - Cantidad predeterminada de filas visibles de texto.
+ * @param {string} [props.className=''] - Clases utilitarias de Tailwind adicionales.
+ * @param {boolean} [props.disabled] - Deshabilita el área de texto ante interacciones.
+ * @param {React.Ref<HTMLTextAreaElement>} ref - Referencia directa al nodo textarea del DOM.
+ * @returns {JSX.Element} Campo de texto multilínea estandarizado.
+ */
+
 import React, { forwardRef } from 'react';
 
-/**
- * Textarea component reutilizable y accesible con soporte para label, error y required.
- */
 const Textarea = forwardRef(({
   label,
   error,
@@ -14,10 +46,12 @@ const Textarea = forwardRef(({
   disabled,
   ...props
 }, ref) => {
+  // Derivación determinista del ID para garantizar correspondencia con la etiqueta
   const textareaId = id || (label ? `textarea-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined);
 
   return (
     <div className="w-full">
+      {/* Etiqueta asociada al campo multilínea */}
       {label && (
         <label
           htmlFor={textareaId}
@@ -46,6 +80,7 @@ const Textarea = forwardRef(({
         `}
       />
 
+      {/* Retroalimentación visual: error crítico o ayuda contextual */}
       {error ? (
         <p className="mt-1 text-xs text-red-600 flex items-center gap-1 animate-fade-in">
           <i className="bi bi-exclamation-circle text-[11px]" />

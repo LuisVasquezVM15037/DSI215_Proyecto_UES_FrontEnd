@@ -1,20 +1,57 @@
-// PBI REVISAR ACCESOS - Lógica en frontend para Pantalla para revisar los intentos de acceso al sistema 
 import { useEffect, useState, useMemo } from 'react';
 import { getRegistrosAcceso } from '../services/usuario.service';
 import Input from '../components/ui/Input';
 import Button from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
+/**
+ * =============================================================================
+ * VISTA: AccessReviewPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Pantalla de seguridad, auditoría forense y control de accesos al sistema.
+ *   Provee a los roles de alta dirección y administración (ADMIN y GERENTE) una bitácora
+ *   cronológica completa de los intentos de autenticación generados en la plataforma,
+ *   distinguiendo entre inicios de sesión legítimos e intentos fallidos.
+ *   Dispone de:
+ *   - Métricas agregadas en tiempo real (KPIs de Total, Exitosos y Fallidos).
+ *   - Filtros combinados en memoria por correo/usuario y rango delimitador de fechas (Inicio y Fin).
+ *   - Tabla de auditoría con fecha/hora localizada (es-SV) y distintivos de seguridad.
+ *   - Mecanismos de reintento de carga y limpieza de filtros.
+ * 
+ * Ubicación y Rol:
+ *   src/views/AccessReviewPage.jsx
+ *   Capa de Vistas / Páginas de Auditoría y Seguridad del Sistema (Ruta protegida: /accesos).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Asociado a la ruta "/accesos" restringido a ADMIN y GERENTE).
+ *   - Consume:
+ *     * src/services/usuario.service.js (getRegistrosAcceso para consultar la bitácora).
+ *     * src/components/ui/Input.jsx (Entradas de texto y fecha para filtrado).
+ *     * src/components/ui/Button.jsx (Botones de acción, reintento y limpieza).
+ *     * src/components/ui/LoadingSpinner.jsx (Spinners de inicialización de auditoría).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Panel de revisión de accesos y auditoría de seguridad.
+ * =============================================================================
+ */
 const AccessReviewPage = () => {
+  // Colección de eventos de auditoría y estados de retroalimentación
   const [registros, setRegistros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
-  // Filtros
+  // Criterios de filtrado reactivo
   const [filtroUsuario, setFiltroUsuario] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
 
+  /**
+   * Consulta al backend la lista histórica de eventos de acceso (GET /usuarios/accesos).
+   * Almacena el resultado asegurando compatibilidad mediante validación de Array.
+   */
   const cargarRegistros = async () => {
     setLoading(true);
     setError('');
@@ -29,6 +66,7 @@ const AccessReviewPage = () => {
     }
   };
 
+  // Carga inicial al montar la vista, protegiendo contra fugas de memoria con flag de desmontaje
   useEffect(() => {
     let active = true;
     getRegistrosAcceso()
@@ -45,7 +83,13 @@ const AccessReviewPage = () => {
     return () => { active = false; };
   }, []);
 
-  // Formato de fecha legible
+  /**
+   * Formatea cadenas de fecha provenientes de la base de datos a formato salvadoreño (es-SV).
+   * Remueve la precisión de sub-segundos (.split('.')) para compatibilidad con Date parsing.
+   * 
+   * @param {string} fecha - Marca de tiempo ISO o datetime SQL.
+   * @returns {string} Fecha y hora legible DD/MM/YYYY HH:mm:ss.
+   */
   const formatearFecha = (fecha) => {
     if (!fecha) return 'Sin fecha';
     const fechaLimpia = fecha.split('.')[0];
@@ -63,7 +107,7 @@ const AccessReviewPage = () => {
     });
   };
 
-  // Filtrar registros
+  // Computa de forma memorizada los registros que satisfacen los filtros de texto y fechas
   const registrosFiltrados = useMemo(() => {
     return registros.filter((registro) => {
       const usuario = String(registro.email_usuario || '').toLowerCase();

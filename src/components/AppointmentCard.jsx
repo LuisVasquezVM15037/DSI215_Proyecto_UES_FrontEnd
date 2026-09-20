@@ -1,17 +1,50 @@
+/**
+ * Propósito:
+ * Componente visual de tarjeta para la visualización de citas médicas en la agenda.
+ * Soporta dos variantes de diseño (modo compacto para calendarios semanales y modo extendido
+ * con línea temporal para la vista diaria). Ofrece acciones rápidas contextuales para recepción
+ * en sala de espera (Check-in), reversión de check-in, reprogramación de horario, edición y cancelación.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/AppointmentCard.jsx'. Componente de dominio clínico dentro de la
+ * capa de componentes de presentación del módulo de agenda.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/views/AppointmentPage.jsx'
+ * - Consume:
+ *   - 'src/utils/cita.utils.js' ('formatHora')
+ *   - 'src/components/ui/StatusBadge.jsx'
+ *   - 'src/components/ui/AvatarBadge.jsx'
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del componente.
+ * @param {Object} props.app - Objeto de datos con la información completa de la cita médica.
+ * @param {boolean} [props.compact=false] - Si es true, renderiza la versión reducida apta para columnas semanales.
+ * @param {(cita: Object) => void} [props.onEditar] - Callback para abrir la edición de la cita.
+ * @param {(cita: Object) => void} [props.onCancelar] - Callback para iniciar la cancelación con motivo.
+ * @param {(cita: Object) => void} [props.onReprogram] - Callback para abrir el modal de reprogramación.
+ * @param {(cita: Object) => void} [props.onCheckIn] - Callback para transicionar la cita a PENDIENTE (recepción).
+ * @param {(cita: Object) => void} [props.onDeshacerCheckIn] - Callback para revertir el estado a PROGRAMADA.
+ * @returns {JSX.Element} Tarjeta renderizada con datos del paciente, horario, estado y acciones disponibles.
+ */
+
 import React from 'react';
 import { formatHora } from '../utils/cita.utils';
 import StatusBadge from './ui/StatusBadge';
 import AvatarBadge from './ui/AvatarBadge';
 
-/**
- * Tarjeta de citas moderna con dos modos de visualización (Día y Semana).
- */
 const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogram, onCheckIn, onDeshacerCheckIn }) => {
+  // Regla de integridad: No se permite cancelar citas que ya alcanzaron un estado terminal
   const canCancel = !['CANCELADA', 'COMPLETADA', 'FINALIZADA'].includes(app.estadoCita);
   const initials = `${app.nombreCompletoPaciente?.[0] ?? '?'}`;
 
+  /**
+   * Subcomponente interno para la botonera de acciones rápidas
+   */
   const Actions = () => (
     <div className="flex items-center gap-1">
+      {/* Botón rápido de recepción / check-in (exclusivo para citas PROGRAMADAS) */}
       {app.estadoCita === 'PROGRAMADA' && onCheckIn && (
         <button
           type="button"
@@ -24,6 +57,7 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
         </button>
       )}
 
+      {/* Botón de reversión de check-in si el paciente se retira o se marcó por error */}
       {app.estadoCita === 'PENDIENTE' && onDeshacerCheckIn && (
         <button
           type="button"
@@ -36,6 +70,7 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
         </button>
       )}
 
+      {/* Botón de reprogramación modal de fecha u horario */}
       {onReprogram && (
         <button
           type="button"
@@ -49,6 +84,7 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
         </button>
       )}
 
+      {/* Botón para abrir el formulario de edición de campos */}
       <button
         type="button"
         onClick={() => onEditar?.(app)}
@@ -60,6 +96,7 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
         <i className="bi bi-pencil text-xs" />
       </button>
 
+      {/* Botón condicional de cancelación */}
       {canCancel && (
         <button
           type="button"
@@ -75,7 +112,7 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
     </div>
   );
 
-  // Modo compacto: para columnas de la vista semanal
+  // Variante compacta optimizada para columnas angostas en la visualización semanal
   if (compact) {
     return (
       <div className="p-3 rounded-2xl bg-white border border-slate-200/80 hover:border-primary-200
@@ -103,10 +140,10 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
     );
   }
 
-  // Modo estándar con línea de tiempo lateral: para la vista del día
+  // Variante estándar con indicador de línea cronológica vertical para la vista detallada por día
   return (
     <div className="flex gap-3.5 mb-3 group">
-      {/* Indicador de hora lateral */}
+      {/* Indicador de hora lateral con conector vertical tipo timeline */}
       <div className="flex flex-col items-center flex-shrink-0 w-16 pt-1">
         <span className="text-xs font-bold text-primary-700 tabular-nums px-2 py-0.5 rounded-lg bg-primary-50">
           {formatHora(app.horaInicioCita)}
@@ -115,7 +152,7 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
         <div className="w-2.5 h-2.5 rounded-full border-2 border-primary-500 bg-white" />
       </div>
 
-      {/* Tarjeta de cita */}
+      {/* Contenedor principal de datos clínicos y administrativos */}
       <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl p-4
                       hover:border-primary-300 hover:shadow-card-md transition-all duration-200">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -135,7 +172,7 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
           <div className="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-wrap">
             <StatusBadge estado={app.estadoCita} />
 
-            {/* Acción rápida de Check-in para secretaria */}
+            {/* Acción destacada de Check-in para recepción */}
             {app.estadoCita === 'PROGRAMADA' && onCheckIn && (
               <button
                 type="button"
@@ -167,5 +204,6 @@ const AppointmentCard = ({ app, compact = false, onEditar, onCancelar, onReprogr
     </div>
   );
 };
+
 
 export default AppointmentCard;

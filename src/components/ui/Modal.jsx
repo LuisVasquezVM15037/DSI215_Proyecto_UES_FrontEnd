@@ -1,17 +1,38 @@
+/**
+ * Propósito:
+ * Componente modal accesible y reutilizable que implementa un cuadro de diálogo flotante (overlay).
+ * Bloquea el scroll del cuerpo del documento mientras está activo, soporta cierre interactivo
+ * mediante tecla de escape (Escape key) o clic sobre el fondo oscurecido (backdrop), y proporciona
+ * divisiones claras para cabecera, cuerpo con scroll interno y pie de acciones.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/ui/Modal.jsx'. Componente de orquestación visual en la capa
+ * de primitivas de interfaz de usuario.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/components/ReprogramModal.jsx'
+ *   - 'src/views/AppointmentPage.jsx'
+ *   - 'src/views/PatientManagementPage.jsx'
+ *   - 'src/views/UserManagementPage.jsx'
+ * - Consume:
+ *   - React ('useEffect').
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del diálogo modal.
+ * @param {boolean} props.isOpen - Controla si el modal se encuentra renderizado y visible.
+ * @param {() => void} props.onClose - Callback invocado al solicitar el cierre (clic exterior, tecla Escape o botón de salida).
+ * @param {string} props.title - Título semántico principal expuesto en el encabezado.
+ * @param {string} [props.subtitle] - Texto explicativo secundario que acompaña al título.
+ * @param {React.ReactNode} props.children - Contenido dinámico del cuerpo del modal.
+ * @param {React.ReactNode} [props.footer] - Botones o acciones finales situados en el pie del diálogo.
+ * @param {'sm'|'md'|'lg'|'xl'} [props.size='md'] - Escala del ancho máximo del contenedor modal.
+ * @returns {JSX.Element|null} Elemento de diálogo modal o null si isOpen es falso.
+ */
+
 import React, { useEffect } from 'react';
 
-/**
- * Dialogo modal accesible y reutilizable.
- * Reemplaza todos los overlays inline del proyecto.
- *
- * @param {boolean} isOpen      - Controla visibilidad
- * @param {() => void} onClose  - Se llama al cerrar (backdrop click o botón X)
- * @param {string} title        - Título del modal
- * @param {string} [subtitle]   - Subtítulo (opcional)
- * @param {React.ReactNode} children - Contenido del modal
- * @param {React.ReactNode} [footer] - Pie del modal (botones de acción)
- * @param {'sm'|'md'|'lg'|'xl'} [size] - Ancho del modal
- */
+// Escala de ancho máximo según el tipo de formulario o visualización a desplegar
 const SIZES = {
   sm: 'max-w-sm',
   md: 'max-w-lg',
@@ -20,8 +41,11 @@ const SIZES = {
 };
 
 const Modal = ({ isOpen, onClose, title, subtitle, children, footer, size = 'md' }) => {
+  // Manejo de efectos colaterales en el DOM global: bloqueo del scroll y detector de tecla Escape
   useEffect(() => {
     if (!isOpen) return;
+    
+    // Evita el desplazamiento accidental de la página de fondo
     document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e) => {
@@ -29,12 +53,14 @@ const Modal = ({ isOpen, onClose, title, subtitle, children, footer, size = 'md'
     };
     window.addEventListener('keydown', handleKeyDown);
 
+    // Restauración limpia del scroll y desuscripción del listener al desmontar o cerrar
     return () => {
       document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
 
+  // Si no está activo, se omite por completo del árbol de renderizado para optimizar recursos
   if (!isOpen) return null;
 
   return (
@@ -49,9 +75,10 @@ const Modal = ({ isOpen, onClose, title, subtitle, children, footer, size = 'md'
       <div
         className={`bg-white rounded-3xl shadow-2xl border border-slate-100 w-full ${SIZES[size]}
                     max-h-[90vh] flex flex-col animate-scale-in overflow-hidden`}
+        // Detiene la propagación para que los clics internos no cierren el modal
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* Cabecera del diálogo con título accesible y botón de cierre rápido */}
         <div className="flex items-start justify-between px-6 py-4.5 border-b border-slate-100 bg-slate-50/50">
           <div>
             <h5 id="modal-title" className="font-bold text-slate-800 text-base tracking-tight">{title}</h5>
@@ -68,10 +95,10 @@ const Modal = ({ isOpen, onClose, title, subtitle, children, footer, size = 'md'
           </button>
         </div>
 
-        {/* Body */}
+        {/* Cuerpo con scroll vertical interno si el contenido excede la altura de la ventana */}
         <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
-        {/* Footer */}
+        {/* Pie de modal opcional para agrupamiento de botones de acción */}
         {footer && (
           <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/40 flex gap-2.5 justify-end">
             {footer}

@@ -1,8 +1,31 @@
+/**
+ * Propósito:
+ * Componente interactivo de selección de tratamientos odontológicos con filtrado en tiempo real
+ * y formulario integrado (inline) para el alta rápida de nuevos procedimientos en el catálogo.
+ * Soporta detección de clics externos para cierre automático y visualización de tarifas base.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/TratamientoSelector.jsx'. Componente de dominio clínico dentro
+ * de la capa de componentes de presentación del odontograma.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/components/StepOdontograma.jsx'
+ * - Consume:
+ *   - React ('useState', 'useRef', 'useEffect').
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del selector.
+ * @param {Array<Object>} [props.tratamientos=[]] - Catálogo disponible de tratamientos odontológicos.
+ * @param {string} props.selectedId - Identificador del tratamiento seleccionado actualmente.
+ * @param {(id: string) => void} props.onSelect - Callback ejecutado al escoger un procedimiento de la lista.
+ * @param {(datos: { nombreTratamiento: string, descripcionTratamiento: string, costoTratamiento: string }) => Promise<any>} props.onCrear - Callback para crear un nuevo tratamiento.
+ * @param {boolean} [props.crearLoading=false] - Indicador de guardado en progreso del nuevo tratamiento.
+ * @returns {JSX.Element} Control desplegable con buscador y subformulario de creación inline.
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 
-/**
- * Selector de tratamientos con búsqueda y formulario de creación inline.
- */
 const TratamientoSelector = ({
   tratamientos = [],
   selectedId,
@@ -22,6 +45,7 @@ const TratamientoSelector = ({
 
   const ref = useRef(null);
 
+  // Detector de clics fuera del componente para cerrar el panel flotante de manera limpia
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
@@ -34,13 +58,18 @@ const TratamientoSelector = ({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Filtrado reactivo según coincidencia en nombre o descripción
   const filtrados = tratamientos.filter(t =>
     t.nombreTratamiento?.toLowerCase().includes(busqueda.toLowerCase()) ||
     t.descripcionTratamiento?.toLowerCase().includes(busqueda.toLowerCase())
   );
 
+  // Búsqueda del elemento seleccionado para desplegar su título en el botón principal
   const seleccionado = tratamientos.find(t => String(t.idTratamiento) === selectedId);
 
+  /**
+   * Valida y despacha la creación de un nuevo tratamiento al catálogo
+   */
   const handleCrear = async () => {
     if (!nuevo.nombreTratamiento.trim() || !nuevo.costoTratamiento) {
       setFormError('Nombre y costo son obligatorios.');
@@ -60,7 +89,7 @@ const TratamientoSelector = ({
   return (
     <div ref={ref} className="relative">
 
-      {/* Trigger */}
+      {/* Botón disparador principal (Trigger) */}
       <button
         type="button"
         onClick={() => setOpen(p => !p)}
@@ -75,13 +104,13 @@ const TratamientoSelector = ({
         <i className={`bi bi-chevron-${open ? 'up' : 'down'} text-slate-400 text-[11px] flex-shrink-0`} />
       </button>
 
-      {/* Dropdown */}
+      {/* Menú flotante desplegable (Dropdown) */}
       {open && (
         <div className="absolute top-[calc(100%+6px)] left-0 right-0 z-50
                         bg-white border border-slate-200 rounded-2xl
                         shadow-xl overflow-hidden animate-scale-in">
 
-          {/* Buscador interno */}
+          {/* Campo de búsqueda interna en tiempo real */}
           <div className="p-2.5 border-b border-slate-100 bg-slate-50/50">
             <div className="flex items-center gap-2 bg-white rounded-xl px-3 py-1.5 border border-slate-200">
               <i className="bi bi-search text-slate-400 text-xs flex-shrink-0" />
@@ -97,7 +126,7 @@ const TratamientoSelector = ({
             </div>
           </div>
 
-          {/* Lista de tratamientos */}
+          {/* Lista scrolleable de opciones */}
           <div className="max-h-52 overflow-y-auto">
             {filtrados.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-5 italic">
@@ -134,7 +163,7 @@ const TratamientoSelector = ({
             })}
           </div>
 
-          {/* Botón para abrir creación rápida */}
+          {/* Botón para alternar la visualización del formulario inline de nuevo procedimiento */}
           <div className="border-t border-slate-100 p-2">
             <button
               type="button"
@@ -147,7 +176,7 @@ const TratamientoSelector = ({
             </button>
           </div>
 
-          {/* Formulario inline de nuevo tratamiento */}
+          {/* Formulario embebido de captura rápida */}
           {showForm && (
             <div
               className="border-t border-slate-100 p-4 bg-slate-50 space-y-2.5"

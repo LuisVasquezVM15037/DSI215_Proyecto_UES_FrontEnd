@@ -1,13 +1,45 @@
+/**
+ * Propósito:
+ * Hook del odontograma interactivo y catálogo de tratamientos dentales.
+ * Administra las piezas dentales seleccionadas mediante notación FDI, valida la regla
+ * de negocio de no duplicidad de hallazgos activos por diente, registra hallazgos
+ * en lote mediante concurrencia con Promise.all asignando estado inicial 'PENDIENTE' (Presupuestado),
+ * y permite la creación en caliente de nuevos tratamientos en el catálogo maestro.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/hooks/useTratamientos.js'. Hook de lógica de negocio clínica dentro de
+ * la capa de hooks del odontograma.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/components/StepOdontograma.jsx'
+ * - Consume:
+ *   - 'src/services/consulta.service.js' ('getTratamientos', 'createTratamiento', 'createHallazgo')
+ *   - 'src/utils/alert.utils.js' ('alertError', 'alertWarning', 'toastSuccess')
+ *
+ * Parámetros y Retornos:
+ * @param {Object} evaluacion - Objeto de evaluación clínica asociada a la cita médica.
+ * @param {() => void} [onHallazgoRegistrado] - Callback para notificar y refrescar el listado de hallazgos.
+ * @param {Array<Object>} [existingHallazgos=[]] - Lista actual de hallazgos para verificar duplicados por pieza.
+ * @returns {Object} Estado del odontograma y operaciones de catálogo:
+ *   - tratamientos {Array<Object>}: Catálogo general de procedimientos odontológicos.
+ *   - selectedTeeth {Array<Object>}: Piezas dentales seleccionadas en el diagrama gráfico.
+ *   - selectedTratamiento {string}: ID del tratamiento seleccionado en el formulario.
+ *   - setSelectedTratamiento {Function}: Mutador del tratamiento seleccionado.
+ *   - customPrecio {string}: Precio o tarifa personalizada a aplicar.
+ *   - setCustomPrecio {Function}: Mutador del precio de tratamiento.
+ *   - savingHallazgo {boolean}: Indicador de persistencia asíncrona de hallazgos.
+ *   - handleOdontogramChange {Function}: Callback que recibe las piezas marcadas en el componente visual del odontograma.
+ *   - handleRegistrarHallazgo {Function}: Valida y persiste los hallazgos para cada pieza seleccionada.
+ *   - handleCrearTratamiento {Function}: Da de alta un nuevo procedimiento clínico en la base de datos.
+ */
+
 import { useState, useEffect } from 'react';
 import {
   getTratamientos, createTratamiento, createHallazgo,
 } from '../services/consulta.service';
 import { alertError, alertWarning, toastSuccess } from '../utils/alert.utils';
 
-/**
- * Hook de tratamientos: catálogo y registro de hallazgos en el odontograma.
- * FIX BUG-12: los hallazgos de múltiples piezas se crean en paralelo con Promise.all.
- */
 export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallazgos = []) => {
   const [tratamientos,        setTratamientos]        = useState([]);
   const [selectedTeeth,       setSelectedTeeth]       = useState([]);
@@ -15,6 +47,9 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
   const [customPrecio,        setCustomPrecio]        = useState('');
   const [savingHallazgo,      setSavingHallazgo]      = useState(false);
 
+  /**
+   * Recupera el catálogo de tratamientos odontológicos vigentes
+   */
   const loadTratamientos = async () => {
     try {
       const data = await getTratamientos();
@@ -28,8 +63,14 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
     loadTratamientos();
   }, []);
 
+  /**
+   * Actualiza el listado de dientes seleccionados en la interacción con el odontograma visual
+   */
   const handleOdontogramChange = (teeth) => setSelectedTeeth(teeth);
 
+  /**
+   * Valida restricciones clínicas y persiste el hallazgo para las piezas marcadas
+   */
   const handleRegistrarHallazgo = async () => {
     if (!evaluacion?.idEvaluacionClinica) {
       alertWarning('Debes guardar el diagnóstico primero.');
@@ -48,7 +89,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
       return;
     }
 
-    // Regla de negocio: Cada hallazgo debe reportarse una vez por pieza dental
+    // Regla de integridad clínica: cada hallazgo debe reportarse una única vez por pieza dental (excluyendo cancelados)
     const listaActual = Array.isArray(existingHallazgos) ? existingHallazgos : [];
     const piezasDuplicadas = selectedTeeth.filter(tooth => {
       const fdi = parseInt(String(tooth.notations?.fdi || tooth.id || '').replace('teeth-', ''), 10);
@@ -65,7 +106,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
 
     setSavingHallazgo(true);
     try {
-      // Registrar hallazgos en paralelo con precioFloat y estado inicial PENDIENTE (Presupuestado)
+      // Registro paralelo concurrente para optimizar la latencia cuando se seleccionan múltiples piezas
       await Promise.all(
         selectedTeeth.map(tooth => {
           const fdi = String(tooth.notations?.fdi || tooth.id || '').replace('teeth-', '');
@@ -83,6 +124,8 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
       );
       toastSuccess('Hallazgo registrado en presupuesto');
       onHallazgoRegistrado?.();
+      
+      // Reinicio de selección tras guardado exitoso
       setSelectedTeeth([]);
       setSelectedTratamiento('');
       setCustomPrecio('');
@@ -94,8 +137,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
   };
 
   /**
-   * Crea un nuevo tratamiento en el catálogo.
-   * La lógica de fetch sube al hook (sale de TratamientoSelector).
+   * Crea un nuevo procedimiento en el catálogo maestro y lo selecciona de inmediato
    */
   const handleCrearTratamiento = async (datos) => {
     const { nombreTratamiento, descripcionTratamiento, costoTratamiento } = datos;
@@ -122,3 +164,4 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado, existingHallaz
     handleCrearTratamiento,
   };
 };
+

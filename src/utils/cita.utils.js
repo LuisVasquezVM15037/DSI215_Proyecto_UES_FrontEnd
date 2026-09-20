@@ -1,94 +1,162 @@
 /**
- * Utilidades de fecha/hora y estado de citas.
+ * Propósito:
+ * Provee funciones matemáticas, de manipulación de fechas y formateo de estados clínicos/administrativos.
+ * Resuelve la discrepancia de formatos entre la serialización de fechas de Jackson en Spring Boot
+ * (arreglos numéricos [año, mes, día, hora, minuto]) y los estándares de JavaScript (ISO 8601 y objetos Date),
+ * gestiona el cálculo de disponibilidad de agenda y sincroniza inasistencias por cambio de día.
+ *
+ * Ubicación y Rol:
+ * Capa de Utilidades de Dominio (src/utils/cita.utils.js).
+ * Motor transversal de normalización de tiempo, validación de traslape de citas y renderizado de estados.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - src/hooks/useAgenda.js
+ *   - src/hooks/useConsultaIndex.js
+ *   - src/hooks/useConsultaData.js
+ *   - src/views/AppointmentPage.jsx
+ *   - src/views/ConsultaIndexPage.jsx
+ *   - src/components/AppointmentCard.jsx
+ *   - src/components/AppointmentForm.jsx
+ *   - src/components/HallazgosList.jsx
+ *   - src/components/ui/StatusBadge.jsx
+ * - Consume:
+ *   - Ningún servicio de red directo (funciones puras y de orquestación de parámetros).
  */
 
-// ── Normalización de fechas ───────────────────────────────────────────────────
+// ── 1. Normalización y Conversión de Fechas ─────────────────────────────────
 
-/** Convierte array [y,m,d] o string ISO → 'yyyy-MM-dd' */
+/**
+ * Propósito:
+ * Convierte cualquier representación de fecha proveniente del backend o de inputs a formato canónico 'YYYY-MM-DD'.
+ *
+ * Ubicación y Rol:
+ * Utilidad de normalización de cadenas de fecha.
+ *
+ * Trazabilidad:
+ * - Invocado desde: src/hooks/useAgenda.js, src/hooks/useConsultaIndex.js, src/views/AppointmentPage.jsx.
+ *
+ * @param {Array<number>|Date|string|number|null} fecha - Fecha en formato arreglo [y,m,d], objeto Date, ISO string o timestamp.
+ * @returns {string} Cadena en formato 'YYYY-MM-DD' o cadena vacía si el valor es nulo.
+ */
 export const normalizarFecha = (fecha) => {
-  // 1. Si no hay fecha (null, undefined, '')
   if (!fecha) return '';
 
-  // 2. Si la fecha viene como arreglo [año, mes, día]
+  // Spring Boot deserializa LocalDate por defecto como un arreglo numérico [año, mes, día]
   if (Array.isArray(fecha)) {
     const [y, m, d] = fecha;
     return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   }
 
-  // 3. Si la fecha es un objeto Date de JavaScript
   if (fecha instanceof Date) {
-    // toISOString() lo convierte a formato 'YYYY-MM-DDTHH:mm:ss.sssZ'
     return fecha.toISOString().split('T')[0];
   }
 
-  // 4. Si la fecha es un número (timestamp en milisegundos)
   if (typeof fecha === 'number') {
     return new Date(fecha).toISOString().split('T')[0];
   }
 
-  // 5. Si no fue nada de lo anterior, se fuerza a que sea un String por seguridad
   const fechaString = String(fecha);
-
   return fechaString.includes('T') ? fechaString.split('T')[0] : fechaString;
 };
 
-// ── Generación de slots y validación de solapamientos de citas al momento de crearlas────────────────
+// ── 2. Generación de Slots y Disponibilidad Horaria ─────────────────────────
 
-export const HORA_APERTURA = '08:00';   // ajustar al horario de la clínica
+export const HORA_APERTURA = '08:00';
 export const HORA_CIERRE = '18:00';
-export const SLOT_MINUTOS = 30;         
-export const DURACION_CITA_MIN = 60;     // la cita dura 1 hora
+export const SLOT_MINUTOS = 30;
+export const DURACION_CITA_MIN = 60;
 
-//── Formateo de fechas y horas para UI ─────────────────────────────────────────
+/**
+ * Convierte una hora en formato militar 'HH:mm' a minutos acumulados del día para facilitar operaciones aritméticas.
+ * @param {string} hhmm - Hora en formato 'HH:mm'.
+ * @returns {number} Minutos transcurridos desde medianoche (ej. '08:30' -> 510).
+ */
 const aMinutos = (hhmm) => {
   const [h, m] = hhmm.split(':').map(Number);
   return h * 60 + m;
 };
+
+/**
+ * Convierte minutos acumulados a una representación canónica de hora 'HH:mm'.
+ * @param {number} min - Total de minutos.
+ * @returns {string} Hora formateada a dos dígitos.
+ */
 const aHHMM = (min) =>
   `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
-/** Suma minutos a una hora "HH:mm" y devuelve "HH:mm" */
+/**
+ * Suma una cantidad entera de minutos a una hora base 'HH:mm'.
+ * @param {string} hhmm - Hora base.
+ * @param {number} mins - Minutos a adicionar.
+ * @returns {string} Nueva hora resultante en 'HH:mm'.
+ */
 export const sumarMinutos = (hhmm, mins) => aHHMM(aMinutos(hhmm) + mins);
 
 /**
- * Genera los slots de inicio en múltiplos de SLOT_MINUTOS.
- * Marca como no disponible el slot cuya cita (de DURACION_CITA_MIN)
- * se solape con una ya existente.
+ * Propósito:
+ * Calcula todos los intervalos de inicio disponibles en la jornada laboral y evalúa si colisionan con citas previamente agendadas.
  *
- * @param {string[]} ocupadas  horas de inicio ya programadas ("HH:mm")
+ * Ubicación y Rol:
+ * Motor de cálculo de agenda y prevención de solapamientos horarios.
+ *
+ * @param {string[]} [ocupadas=[]] - Arreglo de horas 'HH:mm' que ya cuentan con una cita registrada.
+ * @returns {Array<{ value: string, label: string, disponible: boolean }>} Lista de slots con su bandera de disponibilidad.
  */
 export const generarSlots = (ocupadas = []) => {
   const cierre = aMinutos(HORA_CIERRE);
   const ocupadasMin = ocupadas.map(aMinutos);
   const slots = [];
-// Se recorre desde la apertura hasta el cierre, generando slots cada SLOT_MINUTOS
+
+  // Se itera en múltiplos de SLOT_MINUTOS garantizando que la cita proyectada concluya antes del cierre
   for (let t = aMinutos(HORA_APERTURA); t + DURACION_CITA_MIN <= cierre; t += SLOT_MINUTOS) {
     const finNueva = t + DURACION_CITA_MIN;
+    // Dos intervalos [t, finNueva) y [o, o + DURACION) se intersecan si t < finExistente y o < finNueva
     const seSolapa = ocupadasMin.some(o => t < o + DURACION_CITA_MIN && o < finNueva);
     slots.push({ value: aHHMM(t), label: aHHMM(t), disponible: !seSolapa });
   }
   return slots;
 };
 
-//Para obtener la fecha y hora local en UTC 6 
+/**
+ * Propósito:
+ * Genera la fecha en formato ISO 'YYYY-MM-DD' preservando estrictamente la zona horaria local de la clínica (UTC-6),
+ * evitando desfases de fecha ocasionados por la conversión automática a UTC de Date.prototype.toISOString().
+ *
+ * @param {Date|string|number} fecha - Instancia o valor representativo de una fecha.
+ * @returns {string} Cadena 'YYYY-MM-DD' en hora local.
+ */
 export const obtenerFechaLocalISO = (fecha) => {
   const d = new Date(fecha);
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`; // Devuelve YYYY-MM-DD en hora local
+  return `${year}-${month}-${day}`;
 };
 
-/** Convierte array [y,m,d,h,min] o string ISO a Date */
+/**
+ * Propósito:
+ * Transforma arreglos [y, m, d, h, min] o ISO strings en instancias de objeto Date nativo.
+ *
+ * @param {Array<number>|string|null} dt - Valor temporal de origen.
+ * @returns {Date|null} Instancia Date o null si no se suministró valor.
+ */
 export const toDate = (dt) => {
   if (!dt) return null;
+  // Los arreglos de LocalDateTime de Java usan meses basados en 1 (enero = 1), mientras Date de JS usa base 0 (enero = 0)
   if (Array.isArray(dt)) {
     return new Date(dt[0], dt[1] - 1, dt[2], dt[3] ?? 0, dt[4] ?? 0);
   }
   return new Date(dt);
 };
 
-/** Formatea a 'HH:MM AM/PM' en hora local */
+/**
+ * Propósito:
+ * Formatea una fecha u hora al estándar legible 'HH:MM AM/PM' bajo la convención regional de El Salvador ('es-SV').
+ *
+ * @param {Array<number>|string|Date} hora - Objeto o arreglo temporal.
+ * @returns {string} Hora formateada legible o '--:--' en caso de dato nulo.
+ */
 export const formatHora = (hora) => {
   const d = toDate(hora);
   return d
@@ -96,7 +164,13 @@ export const formatHora = (hora) => {
     : '--:--';
 };
 
-/** Formatea 'yyyy-MM-dd' para encabezados de semana. Ej: 'lunes 26 de mayo' */
+/**
+ * Propósito:
+ * Formatea una clave 'YYYY-MM-DD' en texto descriptivo largo para encabezados de calendario (ej. 'lunes 26 de mayo').
+ *
+ * @param {string} fechaStr - Cadena en formato 'YYYY-MM-DD'.
+ * @returns {string} Fecha verbalizada en español.
+ */
 export const formatFechaHeader = (fechaStr) => {
   const [y, m, d] = fechaStr.split('-').map(Number);
   return new Date(y, m - 1, d).toLocaleDateString('es-ES', {
@@ -104,7 +178,13 @@ export const formatFechaHeader = (fechaStr) => {
   });
 };
 
-/** Formatea datetime para inputs datetime-local: 'yyyy-MM-ddTHH:mm' */
+/**
+ * Propósito:
+ * Formatea un valor temporal para campos de formulario tipo <input type="datetime-local"> ('YYYY-MM-DDTHH:mm').
+ *
+ * @param {Array<number>|string|null} dt - Fecha y hora de origen.
+ * @returns {string} Cadena apta para controles HTML5 datetime-local.
+ */
 export const formatDT = (dt) => {
   if (!dt) return '';
   if (Array.isArray(dt)) {
@@ -114,13 +194,24 @@ export const formatDT = (dt) => {
   return dt.substring(0, 16);
 };
 
-/** Retorna 'yyyy-MM-dd' del día de hoy en hora local (esto no UTC) */
+/**
+ * Propósito:
+ * Retorna la fecha del día actual en formato 'YYYY-MM-DD' en hora local del cliente.
+ *
+ * @returns {string} Fecha actual en 'YYYY-MM-DD'.
+ */
 export const getHoyLocal = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-/** Normaliza la fecha de nacimiento de array [y,m,d] a string 'yyyy-MM-dd' para input date */
+/**
+ * Propósito:
+ * Normaliza fechas de nacimiento para campos de formulario tipo <input type="date">.
+ *
+ * @param {Array<number>|string|null} fechaNac - Fecha de nacimiento.
+ * @returns {string} Fecha en 'YYYY-MM-DD'.
+ */
 export const normalizarFechaNacimiento = (fechaNac) => {
   if (!fechaNac) return '';
   if (Array.isArray(fechaNac)) {
@@ -130,11 +221,11 @@ export const normalizarFechaNacimiento = (fechaNac) => {
   return fechaNac;
 };
 
-// ── Mapeo de estado → UI ──────────────────────────────────────────────────────
+// ── 3. Mapeo Visual de Estados (Tailwind CSS) ───────────────────────────────
 
 /**
- * Mapa completo de estado { tw: clases Tailwind, label: texto legible }
- * Esta es la úncia definición
+ * Configuración visual y descriptiva de los estados de cita médica para insignias de estado.
+ * @type {Record<string, { tw: string, label: string }>}
  */
 export const ESTADO_CONFIG = {
   PROGRAMADA:   { tw: 'bg-amber-50   text-amber-700   ring-1 ring-amber-200', label: 'Programada' },
@@ -148,18 +239,32 @@ export const ESTADO_CONFIG = {
   OTRO:         { tw: 'bg-slate-100  text-slate-600',                          label: 'Otro' },
 };
 
-/** Devuelve la config de un estado, con fallback seguro */
+/**
+ * Retorna la configuración de estilos de un estado de cita, garantizando valor de contingencia ante estados imprevistos.
+ * @param {string} estado - Clave del estado evaluado.
+ * @returns {{ tw: string, label: string }}
+ */
 export const getEstadoConfig = (estado) =>
   ESTADO_CONFIG[estado] ?? { tw: 'bg-slate-100 text-slate-500', label: estado ?? '—' };
 
+// ── 4. Sincronización Automática de Inasistencias ───────────────────────────
+
 /**
- * Detecta citas que vencieron en días anteriores (fecha < hoy) y que aún están en estado
- * PROGRAMADA o PENDIENTE (el paciente no asistió y el día cambió).
- * Ejecuta la actualización de estado a 'NO_ASISTIO' en el backend y retorna la lista actualizada.
+ * Propósito:
+ * Examina la nómina de citas cargadas y detecta aquellas cuya fecha programada pertenece a un día pasado
+ * (fechaCita < hoy) y que aún se encuentren en estado PROGRAMADA o PENDIENTE (el paciente no asistió a su cita).
+ * Envía las actualizaciones correspondientes a la API REST para persistir el estado 'NO_ASISTIO' en la base de datos
+ * y retorna la lista reflejando el cambio en memoria de manera inmediata.
  *
- * @param {Array} listaCitas - Lista de citas
- * @param {Function} cambiarEstadoFn - Función (idCita, nuevoEstado)
- * @returns {Promise<Array>} - Lista de citas con los estados sincronizados
+ * Ubicación y Rol:
+ * Motor de sincronización reactiva de inasistencias en la capa de utilidades.
+ *
+ * Trazabilidad:
+ * - Invocado desde: src/hooks/useAgenda.js (fetchAll, refetchCitas) y src/hooks/useConsultaIndex.js (loadAll, refetchCitas).
+ *
+ * @param {Array<Object>} listaCitas - Arreglo de citas obtenido de la API.
+ * @param {Function} cambiarEstadoFn - Función delegada para ejecutar el cambio de estado remoto (id, nuevoEstado).
+ * @returns {Promise<Array<Object>>} Lista de citas con los estados sincronizados.
  */
 export const sincronizarCitasVencidas = async (listaCitas, cambiarEstadoFn) => {
   if (!Array.isArray(listaCitas) || !cambiarEstadoFn || listaCitas.length === 0) {
@@ -167,6 +272,7 @@ export const sincronizarCitasVencidas = async (listaCitas, cambiarEstadoFn) => {
   }
   const hoy = getHoyLocal();
 
+  // Se filtran únicamente citas no atendidas cuya fecha ya venció (comparación léxica de formato ISO 'YYYY-MM-DD')
   const vencidas = listaCitas.filter(c => {
     const fecha = normalizarFecha(c.fechaCita);
     if (!fecha) return false;
@@ -178,27 +284,30 @@ export const sincronizarCitasVencidas = async (listaCitas, cambiarEstadoFn) => {
   if (vencidas.length === 0) return listaCitas;
 
   const actualizadasIds = new Set();
+  // Se procesan las peticiones en paralelo mediante Promise.allSettled para que la falla individual de un registro
+  // no aborte la actualización de las demás citas vencidas
   await Promise.allSettled(
     vencidas.map(async (c) => {
       try {
         await cambiarEstadoFn(c.idCitas, 'NO_ASISTIO');
         actualizadasIds.add(c.idCitas);
       } catch (err) {
-        console.error(`Error al sincronizar cita vencida ID ${c.idCitas} a NO_ASISTIO:`, err);
+        console.error(`Fallo al sincronizar inasistencia de cita ID ${c.idCitas}:`, err);
       }
     })
   );
-
-  if (actualizadasIds.size > 0) {
-    console.info(`[Sync Citas] Se sincronizaron ${actualizadasIds.size} citas vencidas a estado NO_ASISTIO.`);
-  }
 
   return listaCitas.map(c =>
     actualizadasIds.has(c.idCitas) ? { ...c, estadoCita: 'NO_ASISTIO' } : c
   );
 };
 
-// ── Mapeo de estado hallazgo a Tailwind ───────────────────────────────────────
+// ── 5. Mapeo Visual de Hallazgos y Precios ───────────────────────────────────
+
+/**
+ * Configuración visual y descriptiva de los estados de un hallazgo dental.
+ * @type {Record<string, { tw: string, label: string }>}
+ */
 export const HALLAZGO_ESTADO_CONFIG = {
   PENDIENTE:   { tw: 'bg-amber-50 text-amber-800 ring-1 ring-amber-200/80', label: 'Presupuestado' },
   PROGRAMADO:  { tw: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200/80', label: 'Programado' },
@@ -209,14 +318,19 @@ export const HALLAZGO_ESTADO_CONFIG = {
 };
 
 /**
- * Obtiene el precio o costo monetario de un hallazgo con fallback seguro.
- * El backend de Spring Boot retorna `precioFloat`, pero soporta `costoTratamiento`,
- * `costoAplicado` y `precio`.
+ * Propósito:
+ * Extrae el costo monetario de un hallazgo odontológico garantizando compatibilidad ante diferentes nombres
+ * de atributo devueltos por el backend (precioFloat, costoTratamiento, costoAplicado, precio, costo).
+ *
+ * @param {Object|null} h - Objeto representativo del hallazgo clínico.
+ * @returns {number} Valor numérico del precio o 0 si no es válido.
  */
 export const getPrecioHallazgo = (h) => {
   if (!h) return 0;
+  // Se evalúan en cascada las posibles propiedades donde el DTO de Spring Boot serializa el valor económico
   const val = h.precioFloat ?? h.costoTratamiento ?? h.costoAplicado ?? h.precio ?? h.costo;
   const num = Number(val);
   return Number.isFinite(num) ? num : 0;
 };
+
 

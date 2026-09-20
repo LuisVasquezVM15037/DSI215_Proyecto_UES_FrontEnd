@@ -1,11 +1,36 @@
+/**
+ * Propósito:
+ * Componente de lista y tabla interactiva de hallazgos clínicos registrados en el odontograma.
+ * Despliega los procedimientos clasificados por pieza dental (FDI), calcula subtotales monetarios
+ * en tiempo real según el filtro activo (Total, Presupuestado, Por Cobrar, Realizado), y provee
+ * botones de acción rápida para transicionar el flujo de trabajo clínico (Presupuestar -> Programar -> Realizar).
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/HallazgosList.jsx'. Componente de dominio clínico dentro de la
+ * capa de presentación del subsistema de consulta odontológica.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/components/StepOdontograma.jsx'
+ * - Consume:
+ *   - 'src/constants/estados.constants.js' ('ESTADOS_HALLAZGO_OPCIONES', 'ESTADO_HALLAZGO')
+ *   - 'src/utils/cita.utils.js' ('HALLAZGO_ESTADO_CONFIG', 'getPrecioHallazgo')
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del componente.
+ * @param {Array<Object>} [props.hallazgos=[]] - Conjunto de hallazgos filtrados a renderizar en la lista.
+ * @param {(idPlan: number, nuevoEstado: string) => void} props.onCambiarEstado - Callback para actualizar el estado del procedimiento.
+ * @param {(idPlan: number) => void} props.onEliminar - Callback para eliminar un hallazgo no ejecutado.
+ * @param {'Hallazgos'|'Presupuestado'|'Programado'|'Realizado'} [props.activeFilter='Hallazgos'] - Filtro actualmente aplicado.
+ * @param {number} [props.totalSinFiltrar=0] - Conteo total de hallazgos sin filtrar para estados vacíos condicionales.
+ * @param {() => void} [props.onResetFilter] - Callback para restablecer la vista a todos los hallazgos.
+ * @returns {JSX.Element} Lista interactiva de procedimientos con subtotal y botones de acción rápida.
+ */
+
 import React, { useMemo } from 'react';
 import { ESTADOS_HALLAZGO_OPCIONES, ESTADO_HALLAZGO } from '../constants/estados.constants';
 import { HALLAZGO_ESTADO_CONFIG, getPrecioHallazgo } from '../utils/cita.utils';
 
-/**
- * Lista de hallazgos registrados en el odontograma con filtro de vista, subtotal monetario
- * y acciones operativas de flujo clínico (Presupuestar -> Programar -> Realizar).
- */
 const HallazgosList = ({
   hallazgos = [],
   onCambiarEstado,
@@ -14,11 +39,12 @@ const HallazgosList = ({
   totalSinFiltrar = 0,
   onResetFilter,
 }) => {
-  // Cálculo de subtotal con soporte universal de precioFloat / costoTratamiento
+  // Cálculo memoizado de la suma económica total de los hallazgos en la vista actual
   const subtotal = useMemo(() => {
     return hallazgos.reduce((acc, h) => acc + getPrecioHallazgo(h), 0);
   }, [hallazgos]);
 
+  // Manejo de estados vacíos según el contexto de filtrado
   if (hallazgos.length === 0) {
     if (totalSinFiltrar > 0) {
       return (
@@ -49,6 +75,7 @@ const HallazgosList = ({
     );
   }
 
+  // Título dinámico adaptado al propósito del filtro activo
   const tituloFiltro = {
     Hallazgos: 'Hallazgos Clínicos del Odontograma',
     Presupuestado: 'Procedimientos Presupuestados (Pendientes)',
@@ -56,6 +83,7 @@ const HallazgosList = ({
     Realizado: 'Procedimientos Realizados / Concluidos',
   }[activeFilter] ?? `Hallazgos (${activeFilter})`;
 
+  // Etiqueta del balance económico adaptada al contexto analítico
   const subtotalLabel = {
     Hallazgos: 'Subtotal Hallazgos:',
     Presupuestado: 'Total Presupuestado:',
@@ -65,7 +93,7 @@ const HallazgosList = ({
 
   return (
     <div className="mt-2 space-y-2">
-      {/* Header con título contextual y subtotal monetario */}
+      {/* Encabezado contextual con contador y sumatoria económica */}
       <div className="flex items-center justify-between px-1 pb-1.5 border-b border-slate-100 flex-wrap gap-2">
         <div>
           <h6 className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
@@ -84,7 +112,7 @@ const HallazgosList = ({
         </div>
       </div>
 
-      {/* Lista de tarjetas de hallazgos */}
+      {/* Lista de filas/tarjetas con detalle de cada procedimiento dental */}
       <div className="space-y-2">
         {hallazgos.map(h => {
           const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
@@ -100,7 +128,7 @@ const HallazgosList = ({
               className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200/80
                          rounded-2xl hover:border-slate-300 transition-all shadow-xs"
             >
-              {/* Pieza Dental FDI y Datos del Tratamiento */}
+              {/* Identificador de pieza dental según nomenclatura FDI y nombre del procedimiento */}
               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                 <div className="px-2.5 py-1 rounded-xl bg-primary-50 text-primary-800 border border-primary-200/60 text-xs font-extrabold flex-shrink-0">
                   P.{h.piezaDental}
@@ -116,9 +144,9 @@ const HallazgosList = ({
                 </div>
               </div>
 
-              {/* Acciones y control de flujo según estado */}
+              {/* Botonera de acciones rápidas para transiciones del flujo de trabajo */}
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* Flujo 1: Presupuestado (PENDIENTE) → Botón para PROGRAMAR para cobrar/realizar */}
+                {/* Paso 1: De Presupuestado a Programado para cobro/atención inmediata */}
                 {esPendiente && (
                   <button
                     type="button"
@@ -132,7 +160,7 @@ const HallazgosList = ({
                   </button>
                 )}
 
-                {/* Flujo 2: Programado → Botón para REALIZAR (marca COMPLETADO) */}
+                {/* Paso 2: De Programado a Realizado o reversión a Presupuestado */}
                 {esProgramado && (
                   <div className="flex items-center gap-1">
                     <button
@@ -159,7 +187,7 @@ const HallazgosList = ({
                   </div>
                 )}
 
-                {/* Flujo 3: Realizado → Indicador de conclusión */}
+                {/* Paso 3: Indicador de procedimiento realizado exitosamente */}
                 {st === 'COMPLETADO' && (
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                     <i className="bi bi-check-circle-fill text-[10px]" />
@@ -167,7 +195,7 @@ const HallazgosList = ({
                   </span>
                 )}
 
-                {/* Selector de estado oficial para auditoría */}
+                {/* Selector complementario para ajustes administrativos o auditoría */}
                 {!esFinal ? (
                   <select
                     value={st}
@@ -183,7 +211,7 @@ const HallazgosList = ({
                   </select>
                 ) : null}
 
-                {/* Botón eliminar (habilitado solo si no está completado ni cancelado) */}
+                {/* Botón para eliminar el registro (bloqueado una vez completado o cancelado) */}
                 {!esFinal && (
                   <button
                     type="button"

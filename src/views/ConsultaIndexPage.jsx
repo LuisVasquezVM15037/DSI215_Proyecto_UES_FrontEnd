@@ -10,6 +10,24 @@ import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
 
+/**
+ * =============================================================================
+ * COMPONENTE AUXILIAR: StatCard
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Tarjeta de métrica simplificada para el encabezado del panel de consultas,
+ *   presentando el recuento cuantitativo e ícono de estado correspondiente.
+ * 
+ * Parámetros y Retornos:
+ *   @param {Object} props - Propiedades del componente.
+ *   @param {number|string} props.value - Valor numérico del indicador.
+ *   @param {string} props.label - Leyenda descriptiva del indicador.
+ *   @param {string} props.color - Clase Tailwind para texto e ícono.
+ *   @param {string} props.bgClass - Clase Tailwind para el contenedor del ícono.
+ *   @param {string} props.icon - Clase de Bootstrap Icons.
+ *   @returns {JSX.Element} Tarjeta visual con borde redondeado y sombra suave.
+ */
 const StatCard = ({ value, label, color, bgClass, icon }) => (
   <div className="flex items-center gap-3.5 p-4 bg-white rounded-3xl border border-slate-200/80 shadow-card hover:shadow-card-md transition-all">
     <div className={`w-11 h-11 rounded-2xl ${bgClass} flex items-center justify-center flex-shrink-0 text-base shadow-xs`}>
@@ -23,7 +41,42 @@ const StatCard = ({ value, label, color, bgClass, icon }) => (
 );
 
 /**
- * Página principal del módulo de consultas clínicas con cola de turnos y búsqueda de historial.
+ * =============================================================================
+ * VISTA: ConsultaIndexPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Tablero de control y cola de atención clínica diaria para odontólogos y asistentes.
+ *   - Despliega las métricas consolidadas de la jornada: total de citas del día,
+ *     pacientes en sala de espera (PENDIENTE), consultas finalizadas e inasistencias.
+ *   - Provee una barra de búsqueda para auditar el historial de atenciones clínicas
+ *     previas de cualquier paciente mediante un diálogo modal interactivo.
+ *   - Presenta una cuadrícula de tarjetas de turnos clínicos que permite gestionar el
+ *     check-in presencial del paciente y navegar directamente al expediente y
+ *     odontograma activo (/consulta/:idCita).
+ * 
+ * Ubicación y Rol:
+ *   src/views/ConsultaIndexPage.jsx
+ *   Capa de Vistas / Páginas del Módulo Clínico (Ruta protegida: /consulta).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Asociado a la ruta "/consulta" dentro de Layout).
+ *   - Consume:
+ *     * react-router-dom (useNavigate para navegar a la consulta activa).
+ *     * src/hooks/useConsultaIndex.js (Hook de citas del día, estadísticas y búsqueda de historial).
+ *     * src/utils/cita.utils.js (formatHora para la conversión de horas ISO).
+ *     * src/constants/estados.constants.js (ESTADOS_INICIABLES para discernir acción del botón).
+ *     * src/components/ui/StatusBadge.jsx (Badge cromático de estado de cita).
+ *     * src/components/ui/AvatarBadge.jsx (Avatar con inicial del paciente).
+ *     * src/components/ui/SearchInput.jsx (Caja de búsqueda de historial de pacientes).
+ *     * src/components/ui/Modal.jsx (Ventana modal para despliegue de historial clínico).
+ *     * src/components/ui/Button.jsx (Botones de acción, inicio de consulta y cerrado).
+ *     * src/components/ui/LoadingSpinner.jsx (LoadingSpinner y EmptyState informativos).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Vista de la cola de consultas clínicas diarias y modal de historial.
+ * =============================================================================
  */
 const ConsultaIndexPage = () => {
   const navigate = useNavigate();

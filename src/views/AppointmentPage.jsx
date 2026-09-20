@@ -9,9 +9,17 @@ import { formatFechaHeader, normalizarFecha, obtenerFechaLocalISO } from '../uti
 import SearchInput from '../components/ui/SearchInput';
 import AvatarBadge from '../components/ui/AvatarBadge';
 
+// Constantes de alcance para la proyección de semanas adyacentes
 const WEEKS_BEFORE = 1;
 const WEEKS_AFTER = 1;
 
+/**
+ * Calcula el objeto Date correspondiente al día lunes de la semana de la fecha dada.
+ * Utiliza aritmética modular sobre getDay() adaptada a la convención ISO (Lunes = primer día).
+ * 
+ * @param {Date|string} date - Fecha de referencia.
+ * @returns {Date} Instancia de Date en el lunes de dicha semana a las 00:00:00.
+ */
 const getLunesDeSemana = (date) => {
   const d = new Date(date);
   const offset = (d.getDay() + 6) % 7;
@@ -20,6 +28,13 @@ const getLunesDeSemana = (date) => {
   return d;
 };
 
+/**
+ * Genera una secuencia contigua de objetos Date que abarca las semanas anteriores,
+ * la semana en curso y las semanas posteriores con base en los factores de configuración.
+ * 
+ * @param {Date} anchorDate - Fecha pivote para centrar el bloque semanal.
+ * @returns {Array<Date>} Listado de fechas consecutivas.
+ */
 const getWeekDays = (anchorDate) => {
   const inicio = getLunesDeSemana(anchorDate);
   inicio.setDate(inicio.getDate() - WEEKS_BEFORE * 7);
@@ -31,6 +46,13 @@ const getWeekDays = (anchorDate) => {
   });
 };
 
+/**
+ * Construye la cuadrícula de celdas de un mes calendario, incluyendo los espacios
+ * en blanco iniciales (null) según el día de la semana en que inicia el mes.
+ * 
+ * @param {Date} viewDate - Fecha que define el mes y año a renderizar.
+ * @returns {Array<Date|null>} Arreglo de celdas apto para mapeo en grid de 7 columnas.
+ */
 const buildCalendar = (viewDate) => {
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -42,21 +64,63 @@ const buildCalendar = (viewDate) => {
   ];
 };
 
+// Etiquetas abreviadas para los días de la semana de lunes a domingo
 const WEEKDAY_LABELS = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
 
 /**
- * Página de agenda de citas moderna con vistas Día y Semana, mini-calendario y búsqueda rápida.
+ * =============================================================================
+ * VISTA: AppointmentPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Punto neurálgico para la gestión de la agenda odontológica y recepción de pacientes.
+ *   Permite navegar por fechas mediante un mini-calendario mensual reactivo que señala
+ *   visualmente los días con citas registradas, conmutar entre una vista de detalle diario
+ *   (Día) y una panorámica multidía (Semana), buscar pacientes con salto automático a su
+ *   próxima cita, desplegar el formulario de registro/edición de citas médicas (AppointmentForm)
+ *   y ejecutar acciones operativas críticas como la reprogramación (ReprogramModal) y
+ *   el check-in de sala de espera (recepción).
+ * 
+ * Ubicación y Rol:
+ *   src/views/AppointmentPage.jsx
+ *   Capa de Vistas / Páginas de Agenda y Recepción de Pacientes (Ruta protegida: /agenda).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Renderizado en la ruta "/agenda" envuelto por ProtectedRoute y Layout).
+ *   - Consume:
+ *     * src/hooks/useAgenda.js (Hook orquestador de lógica, estados y servicios de agenda).
+ *     * src/components/AppointmentCard.jsx (Tarjeta interactiva con acciones de cita).
+ *     * src/components/AppointmentForm.jsx (Formulario modal/embebido de alta y edición).
+ *     * src/components/ReprogramModal.jsx (Diálogo modal especializado en cambio de horario).
+ *     * src/components/ui/Button.jsx (Acciones de interfaz).
+ *     * src/components/ui/LoadingSpinner.jsx (LoadingSpinner y EmptyState informativos).
+ *     * src/components/ui/SearchInput.jsx (Buscador reactivo con borrado rápido).
+ *     * src/components/ui/AvatarBadge.jsx (Iniciales de avatar de paciente).
+ *     * src/utils/cita.utils.js (formatFechaHeader, normalizarFecha, obtenerFechaLocalISO).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Panel de control de agenda médica con doble columna y modales.
+ * =============================================================================
  */
 const AppointmentPage = () => {
+  // Fecha seleccionada para visualizar citas del día o centrar la semana
   const [selectedDate, setSelectedDate] = useState(new Date());
+  // Control de apertura del formulario de creación/edición
   const [showForm, setShowForm] = useState(false);
+  // Cita seleccionada para proceso de reprogramación
   const [reprogramCita, setReprogramCita] = useState(null);
+  // Pestaña de visualización activa ('dia' | 'semana')
   const [activeTab, setActiveTab] = useState('dia');
+  // Mes visible en el mini-calendario lateral
   const [viewDate, setViewDate] = useState(new Date());
+  // Término de búsqueda rápida para filtrar pacientes y sus citas
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Consume toda la lógica de negocio y persistencia de citas a través del hook
   const agenda = useAgenda(selectedDate);
 
+  // Filtra pacientes en memoria por nombre, apellido o DUI para búsqueda instantánea
   const pacientesFiltrados = searchTerm.trim().length > 1
     ? agenda.pacientes.filter(p =>
         `${p.nombrePaciente} ${p.apellidoPaciente}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -64,22 +128,27 @@ const AppointmentPage = () => {
       )
     : [];
 
+  // Cálculos de proyección de fechas para las vistas semanal y mensual
   const weekDays = getWeekDays(selectedDate);
   const calendarCells = buildCalendar(viewDate);
 
+  // Permite avanzar o retroceder de mes en la vista de calendario
   const cambiarMes = (delta) =>
     setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
 
+  // Carga los datos de una cita existente en el formulario e ingresa en modo edición
   const handleEditar = (cita) => {
     agenda.prepararEditarCita(cita);
     setShowForm(true);
   };
 
+  // Restablece el formulario a blanco y abre la vista de creación
   const handleNueva = () => {
     agenda.prepararNuevaCita();
     setShowForm(true);
   };
 
+  // Callback al completar con éxito el guardado o edición de una cita
   const handleFormSuccess = () => setShowForm(false);
 
   return (

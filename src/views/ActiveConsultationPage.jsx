@@ -12,13 +12,53 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import Button from '../components/ui/Button';
 
 /**
- * Página de consulta activa.
- * Orquesta los 4 pasos: Evaluación → Odontograma → Prescripción → Cierre.
- * Toda la lógica de negocio vive en los hooks especializados.
+ * =============================================================================
+ * VISTA: ActiveConsultationPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Orquestador maestro del flujo clínico de atención odontológica en tiempo real.
+ *   Captura el parámetro de ruta (:citaId) y gobierna una máquina de estados visual
+ *   dividida en cuatro etapas secuenciales (stepper):
+ *     1. Evaluación Inicial (StepEvaluacion): Anamnesis, diagnóstico y observaciones.
+ *     2. Odontograma Interactivo (StepOdontograma): Inspección FDI por pieza/cara,
+ *        registro de hallazgos, costeo y asignación de planes de tratamiento.
+ *     3. Prescripción Médica (StepPrescripcion): Formulación estructurada de fármacos
+ *        y finalización formal de la consulta ante el backend.
+ *     4. Cierre y Recetario (StepCierre): Resumen ejecutivo, impresión de receta
+ *        médica oficial y agendamiento preventivo de sesiones posteriores.
+ *   Delega la lógica reactiva y la sincronización con el servidor a tres hooks especializados:
+ *   useConsultaData, usePrescripcion y useTratamientos.
+ * 
+ * Ubicación y Rol:
+ *   src/views/ActiveConsultationPage.jsx
+ *   Capa de Vistas / Páginas de Flujo Clínico (Ruta protegida: /consulta/:citaId).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Asociado a la ruta "/consulta/:citaId" dentro de Layout).
+ *   - Consume:
+ *     * react-router-dom (useParams para extraer citaId, useNavigate para redirección).
+ *     * src/hooks/useConsultaData.js (Carga de cita, evaluación, hallazgos y finalización).
+ *     * src/hooks/usePrescripcion.js (Gestión de receta, medicamentos y dosis).
+ *     * src/hooks/useTratamientos.js (Catálogo de procedimientos y selección dental).
+ *     * src/components/ConsultaBanner.jsx (Banner superior con stepper y datos de paciente).
+ *     * src/components/StepEvaluacion.jsx (Paso 1).
+ *     * src/components/StepOdontograma.jsx (Paso 2).
+ *     * src/components/StepPrescripcion.jsx (Paso 3).
+ *     * src/components/StepCierre.jsx (Paso 4).
+ *     * src/components/ui/LoadingSpinner.jsx (Spinner de inicialización).
+ *     * src/components/ui/Button.jsx (Botones de acción).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Flujo guiado de la consulta clínica activa.
+ * =============================================================================
  */
 const ActiveConsultationPage = () => {
+  // Identificador de la cita médica extraído de los parámetros de la URL
   const { citaId } = useParams();
   const navigate   = useNavigate();
+  // Estado que gobierna el paso activo en el flujo de 4 etapas (1, 2, 3, 4)
   const [step, setStep] = useState(1);
 
   // ── Hooks de datos ──────────────────────────────────────────────────────

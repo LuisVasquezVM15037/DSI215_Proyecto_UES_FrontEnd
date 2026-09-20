@@ -1,3 +1,40 @@
+/**
+ * Propósito:
+ * Hook de gestión del catálogo y expedientes clínicos de pacientes.
+ * Centraliza las operaciones CRUD (creación, edición, consulta y eliminación),
+ * implementa búsqueda optimizada con control de concurrencia (debouncing y cancelación
+ * con AbortController para prevenir condiciones de carrera), normalización de fechas
+ * de nacimiento y validación de borrado mediante cuadros de diálogo confirmatorios.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/hooks/usePatientManagement.js'. Hook de lógica de negocio dentro de la
+ * capa de hooks para la administración de pacientes.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/views/PatientManagementPage.jsx'
+ * - Consume:
+ *   - 'src/services/paciente.service.js' ('getPacientes', 'buscarPacientes', 'createPaciente', 'updatePaciente', 'deletePaciente')
+ *   - 'src/utils/cita.utils.js' ('normalizarFechaNacimiento')
+ *   - 'src/utils/alert.utils.js' ('alertSuccess', 'alertError', 'confirmDelete')
+ *   - 'src/hooks/useDebounce.js' ('useDebounce')
+ *
+ * Parámetros y Retornos:
+ * @returns {Object} Estado del módulo de pacientes y métodos transaccionales:
+ *   - patients {Array<Object>}: Lista de registros de pacientes recuperados.
+ *   - selectedId {number|null}: ID del paciente en edición (null si se crea uno nuevo).
+ *   - formData {Object}: Estado controlado del formulario de expediente del paciente.
+ *   - loading {boolean}: Indicador de petición de red o sincronización activa.
+ *   - isEditing {boolean}: Bandera binaria indicadora de si se encuentra en modo edición.
+ *   - searchTerm {string}: Criterio textual actual en la barra de búsqueda.
+ *   - setSearchTerm {Function}: Mutador del término de búsqueda.
+ *   - handleSelect {Function}: Carga los datos de un paciente seleccionado en el formulario.
+ *   - handleChange {Function}: Manejador de cambio de campos en los inputs del formulario.
+ *   - handleSubmit {Function}: Despacha creación o actualización según 'isEditing'.
+ *   - handleCancel {Function}: Limpia el formulario y restablece el modo creación.
+ *   - handleDelete {Function}: Ejecuta la eliminación tras confirmación explícita del usuario.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import {
   getPacientes, buscarPacientes,
@@ -7,6 +44,7 @@ import { normalizarFechaNacimiento } from '../utils/cita.utils';
 import { alertSuccess, alertError, confirmDelete } from '../utils/alert.utils';
 import { useDebounce } from './useDebounce';
 
+// Estructura limpia de partida para registrar o reiniciar el formulario de pacientes
 const FORM_INICIAL = {
   nombrePaciente:          '',
   apellidoPaciente:        '',
@@ -18,12 +56,6 @@ const FORM_INICIAL = {
   alergias:                '',
 };
 
-/**
- * Hook del módulo de gestión de pacientes.
- * FIX BUG-03: debounce + AbortController para búsqueda sin race condition.
- * FIX BUG-04: se eliminó navigate no usado.
- * FIX BUG-06: padding de fecha con padStart, no regex.
- */
 export const usePatientManagement = () => {
   const [patients,   setPatients]   = useState([]);
   const [selectedId, setSelectedId] = useState(null);
@@ -31,9 +63,13 @@ export const usePatientManagement = () => {
   const [loading,    setLoading]    = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Estabilización del término de búsqueda (350ms) para evitar llamadas excesivas al backend
   const debouncedSearch = useDebounce(searchTerm, 350);
 
-  // FIX BUG-03: un solo useEffect reactivo al término debounceado
+  /**
+   * Carga asíncrona de pacientes con soporte para cancelación vía AbortSignal
+   * para prevenir sobreescritura de resultados por condiciones de carrera (race conditions).
+   */
   const loadPatients = useCallback(async (term, signal) => {
     setLoading(true);
     try {
@@ -48,15 +84,22 @@ export const usePatientManagement = () => {
     }
   }, []);
 
+  // Efecto que responde a cambios en el término estabilizado y aborta peticiones intermedias
   useEffect(() => {
     const controller = new AbortController();
     loadPatients(debouncedSearch.trim(), controller.signal);
     return () => controller.abort();
   }, [debouncedSearch, loadPatients]);
 
+  /**
+   * Manejador de cambios reactivo para inputs del formulario
+   */
   const handleChange = (e) =>
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
+  /**
+   * Prepara el formulario para editar los datos de un paciente seleccionado
+   */
   const handleSelect = (patient) => {
     setSelectedId(patient.idPaciente);
     setFormData({
@@ -64,7 +107,7 @@ export const usePatientManagement = () => {
       apellidoPaciente:        patient.apellidoPaciente,
       numeroIdentidadPaciente: patient.numeroIdentidadPaciente,
       telefonoPaciente:        patient.telefonoPaciente        ?? '',
-      // FIX BUG-06: usar padStart en lugar de regex frágil
+      // Normalización robusta de la fecha a formato ISO YYYY-MM-DD para el input tipo date
       fechaNacimientoPaciente: normalizarFechaNacimiento(patient.fechaNacimientoPaciente),
       emailPaciente:           patient.emailPaciente           ?? '',
       contactoEmergencia:      patient.contactoEmergencia      ?? '',
@@ -72,11 +115,17 @@ export const usePatientManagement = () => {
     });
   };
 
+  /**
+   * Cancela la edición y reinicia los campos al estado base
+   */
   const handleCancel = () => {
     setSelectedId(null);
     setFormData(FORM_INICIAL);
   };
 
+  /**
+   * Registra un nuevo paciente en la base de datos
+   */
   const handleCreate = async () => {
     setLoading(true);
     try {
@@ -91,6 +140,9 @@ export const usePatientManagement = () => {
     }
   };
 
+  /**
+   * Actualiza los datos de un paciente existente
+   */
   const handleUpdate = async () => {
     setLoading(true);
     try {
@@ -105,6 +157,9 @@ export const usePatientManagement = () => {
     }
   };
 
+  /**
+   * Elimina un expediente previa confirmación por diálogo modal
+   */
   const handleDelete = async () => {
     const confirmed = await confirmDelete(
       `${formData.nombrePaciente} ${formData.apellidoPaciente}`,
@@ -133,3 +188,4 @@ export const usePatientManagement = () => {
     handleSubmit, handleCancel, handleDelete,
   };
 };
+

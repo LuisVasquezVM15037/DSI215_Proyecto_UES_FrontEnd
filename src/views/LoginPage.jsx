@@ -4,29 +4,73 @@ import { loginService, saveSession } from '../services/auth.service';
 import Button from '../components/ui/Button';
 
 /**
- * Página de login moderna con panel de marca clínico e interacciones fluidas.
+ * =============================================================================
+ * VISTA: LoginPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Punto de entrada para la autenticación de usuarios en el sistema DentalCare.
+ *   Provee una interfaz dividida en dos paneles: un panel lateral institucional con
+ *   la propuesta de valor y módulos del sistema, y un panel interactivo que captura
+ *   las credenciales del usuario (identificador y contraseña), gestiona la visibilidad
+ *   del campo secreto, valida la completitud de los datos y coordina la autenticación
+ *   con el backend. Al autenticar con éxito, persiste la sesión (token JWT y metadatos)
+ *   y redirige al usuario hacia el panel de control principal (/dashboard).
+ * 
+ * Ubicación y Rol:
+ *   src/views/LoginPage.jsx
+ *   Capa de Vistas / Páginas de Autenticación y Acceso Público.
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Definido como elemento para las rutas "/" y "/login").
+ *   - Consume:
+ *     * react-router-dom (useNavigate para la redirección post-autenticación).
+ *     * src/services/auth.service.js (loginService para la petición HTTP, saveSession para persistencia local).
+ *     * src/components/ui/Button.jsx (Botón de acción con soporte para estado de carga).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Vista completa de inicio de sesión con branding y formulario reactivo.
+ * =============================================================================
  */
 const LoginPage = () => {
   const navigate = useNavigate();
+
+  // Estados locales para la gestión de formulario, visibilidad y retroalimentación
   const [identifier, setIdentifier] = useState('');
   const [password,   setPassword]   = useState('');
   const [showPwd,    setShowPwd]     = useState(false);
   const [error,      setError]       = useState('');
   const [loading,    setLoading]     = useState(false);
 
+  /**
+   * Procesa el envío del formulario de credenciales.
+   * Realiza una validación previa no vacía, activa el bloqueo visual de carga,
+   * despacha la petición al servicio de autenticación y transfiere el flujo a /dashboard.
+   * 
+   * @param {React.FormEvent<HTMLFormElement>} e - Evento de submit del formulario.
+   */
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    // Verificación sintáctica preventiva de campos requeridos
     if (!identifier.trim() || !password) {
       setError('Por favor, ingresa tu usuario y contraseña.');
       return;
     }
+
     setError('');
     setLoading(true);
+
     try {
+      // Envía credenciales al backend (POST /auth/login)
       const data = await loginService(identifier.trim(), password);
+      // Persiste el token JWT y los datos del usuario en localStorage
       saveSession(data);
+      // Transfiere la navegación al panel principal
       navigate('/dashboard');
     } catch (err) {
+      // Captura mensajes estructurados devueltos por la capa de servicios o el servidor
       setError(err.message || 'Error de conexión con el servidor.');
     } finally {
       setLoading(false);

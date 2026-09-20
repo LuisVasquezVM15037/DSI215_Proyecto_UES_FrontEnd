@@ -1,3 +1,46 @@
+/**
+ * Propósito:
+ * Componente principal de la Fase 2 de la consulta clínica (Odontograma Interactivo).
+ * Integra la representación anatómica dental basada en el estándar internacional FDI,
+ * suministra cuatro filtros analíticos (Hallazgos, Presupuestado, Programado, Realizado),
+ * mapea dinámicamente las condiciones cromáticas sobre los gráficos vectoriales (SVG) de los dientes,
+ * y hospeda el panel lateral para asignación de tratamientos y precios a las piezas seleccionadas.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/StepOdontograma.jsx'. Componente nuclear de dominio clínico dentro
+ * de la capa de presentación de la consulta activa.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/views/ActiveConsultationPage.jsx'
+ * - Consume:
+ *   - 'react-odontogram' (librería gráfica de odontograma anatómico).
+ *   - 'src/components/HallazgosList.jsx' (tabla interactiva de procedimientos filtrados).
+ *   - 'src/components/TratamientoSelector.jsx' (dropdown de procedimientos y creación inline).
+ *   - 'src/components/ui/Button.jsx' (botones de navegación y guardado).
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del componente.
+ * @param {Object} props.cita - Objeto con los datos de la cita médica activa.
+ * @param {Array<Object>} [props.hallazgos=[]] - Lista global de hallazgos registrados para la evaluación.
+ * @param {(idPlan: number, estado: string) => void} props.onCambiarEstado - Callback para transicionar el estado del hallazgo.
+ * @param {(idPlan: number) => void} props.onEliminarHallazgo - Callback para suprimir un hallazgo del plan.
+ * @param {Array<Object>} props.tratamientos - Catálogo maestro de tratamientos clínicos disponibles.
+ * @param {Array<Object>} props.selectedTeeth - Dientes marcados activamente en el diagrama interactivo.
+ * @param {string} props.selectedTratamiento - Identificador del tratamiento seleccionado en el panel lateral.
+ * @param {(id: string) => void} props.setSelectedTratamiento - Mutador del tratamiento seleccionado.
+ * @param {string} props.customPrecio - Importe económico a aplicar al procedimiento seleccionado.
+ * @param {(val: string) => void} props.setCustomPrecio - Mutador del importe del tratamiento.
+ * @param {boolean} props.savingHallazgo - Indicador de guardado en red activo.
+ * @param {(teeth: Array<Object>) => void} props.onOdontogramChange - Notificación emitida al hacer clic sobre piezas dentales.
+ * @param {() => void} props.onRegistrarHallazgo - Callback para persistir los hallazgos en las piezas seleccionadas.
+ * @param {(data: Object) => Promise<any>} [props.onCrearTratamiento] - Función para dar de alta nuevos tratamientos en catálogo.
+ * @param {(data: Object) => Promise<any>} [props.onCrearNuevoTratamiento] - Alias alternativo para creación de tratamiento.
+ * @param {() => void} props.onVolver - Retorno al Paso 1 (Evaluación).
+ * @param {() => void} props.onContinuar - Avance al Paso 3 (Prescripción).
+ * @returns {JSX.Element} Panel interactivo con odontograma anatómico, filtros y formulario lateral de asignación.
+ */
+
 import React, { useState, useMemo } from 'react';
 import { Odontogram } from 'react-odontogram';
 import 'react-odontogram/style.css';
@@ -6,6 +49,7 @@ import HallazgosList from './HallazgosList';
 import TratamientoSelector from './TratamientoSelector';
 import Button from './ui/Button';
 
+// Definición de filtros de vista clínica para segmentar los procedimientos del odontograma
 const FILTERS = [
   { id: 'Hallazgos',     label: 'Hallazgos',     icon: 'bi-grid-fill' },
   { id: 'Presupuestado', label: 'Presupuestado', icon: 'bi-receipt' },
@@ -13,10 +57,6 @@ const FILTERS = [
   { id: 'Realizado',     label: 'Realizado',     icon: 'bi-check-circle-fill' },
 ];
 
-/**
- * Paso 2: Odontograma interactivo digital y registro de hallazgos por pieza dental.
- * Conectado con filtros clínicos de vista: Hallazgos, Presupuestado, Programado y Realizado.
- */
 const StepOdontograma = ({
   cita,
   hallazgos = [],
@@ -40,24 +80,24 @@ const StepOdontograma = ({
   const piecesText = selectedTeeth.map(t => t.notations?.fdi || t.id).join(', ');
   const handleCrear = onCrearTratamiento || onCrearNuevoTratamiento;
 
-  // Conteos en tiempo real para cada vista según reglas de negocio
+  // Cálculo de conteos en tiempo real para cada pestaña según reglas de negocio
   const conteos = useMemo(() => {
     const lista = Array.isArray(hallazgos) ? hallazgos : [];
     const total = lista.length;
 
-    // Presupuestados: todos los hallazgos que aún no están en progreso, programados, realizados o cancelados
+    // Presupuestados: procedimientos registrados que aún no están programados para cobro, en ejecución ni finalizados
     const presupuestado = lista.filter(h => {
       const st = String(h.estadoPlan || 'PENDIENTE').toUpperCase();
       return !['PROGRAMADO', 'EN_PROGRESO', 'COMPLETADO', 'FINALIZADO', 'CANCELADO'].includes(st);
     }).length;
 
-    // Programados: procedimientos actualmente seleccionados para realizar y cobrar en esta cita
+    // Programados: procedimientos seleccionados específicamente para realizarse y cobrarse en la cita presente
     const programado = lista.filter(h => {
       const st = String(h.estadoPlan || '').toUpperCase();
       return st === 'PROGRAMADO' || st === 'EN_PROGRESO';
     }).length;
 
-    // Realizados: procedimientos concluidos
+    // Realizados: procedimientos cuya intervención ya fue concluida con éxito
     const realizado = lista.filter(h => {
       const st = String(h.estadoPlan || '').toUpperCase();
       return st === 'COMPLETADO' || st === 'FINALIZADO';
@@ -71,7 +111,7 @@ const StepOdontograma = ({
     };
   }, [hallazgos]);
 
-  // Coloreado condicional del Odontograma según el filtro activo y estado de cada pieza
+  // Reglas cromáticas que colorean condicionalmente los dientes según el filtro activo y el estado del tratamiento
   const teethConditions = useMemo(() => {
     if (!hallazgos?.length) return [];
 
@@ -95,7 +135,7 @@ const StepOdontograma = ({
     const conditions = [];
 
     if (activeFilter === 'Hallazgos') {
-      // Vista 1: Reporte general de hallazgos en piezas con diferenciación cromática
+      // Vista 1: Mapa general de todos los hallazgos con diferenciación de color por estado
       if (pendientes.length > 0) {
         conditions.push({
           label: 'Presupuestado / Pendiente',
@@ -121,7 +161,7 @@ const StepOdontograma = ({
         });
       }
     } else if (activeFilter === 'Presupuestado') {
-      // Vista 2: Solo piezas presupuestadas pendientes de atención
+      // Vista 2: Resalta exclusivamente piezas presupuestadas pendientes de programar
       if (pendientes.length > 0) {
         conditions.push({
           label: 'Presupuestado (Pendiente)',
@@ -131,7 +171,7 @@ const StepOdontograma = ({
         });
       }
     } else if (activeFilter === 'Programado') {
-      // Vista 3: Solo procedimientos programados para realizar y cobrar hoy
+      // Vista 3: Resalta únicamente piezas programadas para atención y cobro en la fecha presente
       if (programados.length > 0) {
         conditions.push({
           label: 'Programado para Atención / Cobro',
@@ -141,7 +181,7 @@ const StepOdontograma = ({
         });
       }
     } else if (activeFilter === 'Realizado') {
-      // Vista 4: Solo procedimientos completados
+      // Vista 4: Resalta piezas con intervenciones odontológicas concluidas
       if (realizados.length > 0) {
         conditions.push({
           label: 'Realizado (Completado)',
@@ -155,7 +195,7 @@ const StepOdontograma = ({
     return conditions;
   }, [hallazgos, activeFilter]);
 
-  // Lista filtrada de hallazgos para la tabla inferior
+  // Lista memoizada de hallazgos filtrados para la tabla inferior
   const hallazgosFiltrados = useMemo(() => {
     if (!hallazgos?.length) return [];
     if (activeFilter === 'Hallazgos') return hallazgos;
@@ -174,7 +214,6 @@ const StepOdontograma = ({
       return true;
     });
   }, [hallazgos, activeFilter]);
-
 
   return (
     <div className="flex gap-4 mt-2 flex-1 min-h-0 overflow-hidden animate-fade-in">

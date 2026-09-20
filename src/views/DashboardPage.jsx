@@ -6,6 +6,24 @@ import StatusBadge from '../components/ui/StatusBadge';
 import AvatarBadge from '../components/ui/AvatarBadge';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 
+/**
+ * =============================================================================
+ * COMPONENTE AUXILIAR: StatCard
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Renderiza una tarjeta métrica individual con conteo numérico destacado,
+ *   etiqueta descriptiva e ícono temático con esquema de color personalizable.
+ * 
+ * Parámetros y Retornos:
+ *   @param {Object} props - Propiedades del componente.
+ *   @param {number|string} props.value - Valor cuantitativo a mostrar.
+ *   @param {string} props.label - Título descriptivo de la métrica.
+ *   @param {string} props.color - Clase de color de Tailwind para el texto e icono.
+ *   @param {string} props.bgClass - Clase de fondo para el contenedor del icono.
+ *   @param {string} props.icon - Nombre de la clase del icono de Bootstrap Icons.
+ *   @returns {JSX.Element} Tarjeta métrica estilizada.
+ */
 const StatCard = ({ value, label, color, bgClass, icon }) => (
   <div className="flex items-center gap-3.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-card hover:shadow-card-md transition-all">
     <div className={`w-11 h-11 rounded-xl ${bgClass} flex items-center justify-center flex-shrink-0 text-base shadow-xs`}>
@@ -22,6 +40,25 @@ const StatCard = ({ value, label, color, bgClass, icon }) => (
   </div>
 );
 
+/**
+ * =============================================================================
+ * COMPONENTE AUXILIAR: QuickAction
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Botón interactivo de navegación rápida hacia los flujos centrales de la clínica
+ *   (nuevo paciente, agendar cita, atender consultas y administración de usuarios).
+ * 
+ * Parámetros y Retornos:
+ *   @param {Object} props - Propiedades del componente.
+ *   @param {string} props.icon - Clase de Bootstrap Icons.
+ *   @param {string} props.title - Título principal de la acción.
+ *   @param {string} props.desc - Breve descripción del destino.
+ *   @param {Function} props.onClick - Manejador de clic para enrutar o disparar acción.
+ *   @param {string} props.colorClass - Clase Tailwind para el fondo del ícono.
+ *   @param {string} props.borderHover - Clase Tailwind aplicada al estado hover del borde.
+ *   @returns {JSX.Element} Botón de acceso directo con animación y microinteracción.
+ */
 const QuickAction = ({ icon, title, desc, onClick, colorClass, borderHover }) => (
   <button
     type="button"
@@ -47,10 +84,42 @@ const QuickAction = ({ icon, title, desc, onClick, colorClass, borderHover }) =>
 );
 
 /**
- * Página principal del dashboard con métricas clave y accesos directos.
+ * =============================================================================
+ * VISTA: DashboardPage
+ * =============================================================================
+ * 
+ * Propósito:
+ *   Panel de control y bienvenida principal del sistema DentalCare.
+ *   Ofrece una visión general de la actividad de la clínica en la fecha actual:
+ *   - Saludo contextual con el nombre del usuario autenticado y la fecha formateada.
+ *   - Accesos directos a los módulos con mayor frecuencia de uso.
+ *   - Listado en tiempo real de las citas programadas para el día de hoy, con hora,
+ *     paciente, especialidad y estado visual.
+ *   - Tarjetas métricas de síntesis con el desglose estadístico diario (citas totales,
+ *     completadas, pendientes de atención y reprogramadas).
+ * 
+ * Ubicación y Rol:
+ *   src/views/DashboardPage.jsx
+ *   Capa de Vistas / Páginas (Ruta protegida: /dashboard).
+ * 
+ * Trazabilidad (Referencias):
+ *   - Invocado desde:
+ *     * src/App.jsx (Definido como elemento protegido dentro de Layout en /dashboard).
+ *   - Consume:
+ *     * react-router-dom (useNavigate para la navegación interna entre rutas).
+ *     * src/hooks/useHomeDashboard.js (useHomeDashboard para la ingesta reactiva de datos).
+ *     * src/utils/cita.utils.js (formatHora para la representación amigable de horarios).
+ *     * src/components/ui/StatusBadge.jsx (Badge cromático de estado de cita).
+ *     * src/components/ui/AvatarBadge.jsx (Inicial del paciente).
+ *     * src/components/ui/LoadingSpinner.jsx (Indicador de carga durante consultas).
+ * 
+ * Parámetros y Retornos:
+ *   @returns {JSX.Element} Vista del dashboard ejecutivo con tarjetas y métricas.
+ * =============================================================================
  */
 const DashboardPage = () => {
   const navigate = useNavigate();
+  // Consume el estado global del panel mediante el hook especializado
   const { citasHoy, loading, userName, today, stats } = useHomeDashboard();
 
   return (

@@ -1,12 +1,47 @@
+/**
+ * Propósito:
+ * Componente de interfaz correspondiente a la Fase 3 del flujo clínico (Prescripción Farmacológica).
+ * Provee un formulario dual que permite configurar renglones posológicos vinculados opcionalmente
+ * a piezas dentales tratadas en el odontograma, genera una previsualización reactiva de la hoja
+ * de receta médica en tiempo real y permite su guardado formal en el historial clínico.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/StepPrescripcion.jsx'. Componente de dominio clínico dentro
+ * de la capa de componentes de presentación del subsistema de atención médica.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/views/ActiveConsultationPage.jsx'
+ * - Consume:
+ *   - 'src/components/ui/Button.jsx'
+ *   - 'src/components/ui/Input.jsx'
+ *   - 'src/components/ui/Select.jsx'
+ *   - 'src/components/ui/Textarea.jsx'
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del componente.
+ * @param {Array<Object>} props.hallazgos - Lista de hallazgos del odontograma para asociar justificación clínica.
+ * @param {Array<Object>} props.medicamentos - Catálogo maestro de medicamentos y concentraciones disponibles.
+ * @param {Object|null} props.prescripcion - Objeto de prescripción previamente guardada en el servidor (si existe).
+ * @param {(p: Object|null) => void} props.setPrescripcion - Mutador del estado de la prescripción.
+ * @param {Array<Object>} props.detalles - Lista local de renglones farmacológicos en preparación.
+ * @param {Object} props.detalleActual - Formulario en captura del medicamento actual.
+ * @param {(campo: string, valor: any) => void} props.handleDetalleChange - Manejador de cambio para el formulario posológico.
+ * @param {boolean} props.savingPrescripcion - Indicador de guardado asíncrono activo.
+ * @param {(hallazgos: Array<Object>) => void} props.onAgregarDetalle - Callback para validar y agregar el fármaco a la lista local.
+ * @param {(index: number) => void} props.onEliminarDetalle - Callback para suprimir un medicamento de la receta en preparación.
+ * @param {() => void} props.onGuardarPrescripcion - Callback para persistir formalmente la receta en el backend.
+ * @param {() => void} props.onFinalizar - Callback para avanzar a la fase de Cierre sin emitir medicamentos.
+ * @param {() => void} props.onVolver - Callback para retornar al Paso 2 (Odontograma).
+ * @returns {JSX.Element} Vista con panel de captura farmacológica y previsualización de la receta médica.
+ */
+
 import React from 'react';
 import Button from './ui/Button';
 import Input from './ui/Input';
 import Select from './ui/Select';
 import Textarea from './ui/Textarea';
 
-/**
- * Paso 3: Prescripción de medicamentos con formulario dual y visualización previa de receta médica.
- */
 const StepPrescripcion = ({
   hallazgos,
   medicamentos,
@@ -26,6 +61,7 @@ const StepPrescripcion = ({
                   flex-1 overflow-y-auto animate-fade-in">
     <div className="p-6 md:p-8 max-w-5xl mx-auto space-y-6">
 
+      {/* Encabezado descriptivo de la etapa de prescripción */}
       <div className="border-b border-slate-100 pb-4">
         <h5 className="font-extrabold text-slate-800 text-lg font-display">
           3. Emisión de Prescripción y Receta Médica
@@ -36,7 +72,7 @@ const StepPrescripcion = ({
       </div>
 
       {prescripcion ? (
-        /* Estado cuando la prescripción ya fue guardada previamente */
+        /* Tarjeta informativa mostrada cuando la prescripción ya fue persistida */
         <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-emerald-800 text-sm font-bold">
             <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
@@ -71,10 +107,10 @@ const StepPrescripcion = ({
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          {/* ── PANEL IZQUIERDO: Formulario de adición de medicamentos (7 cols) ──── */}
+          {/* ── PANEL IZQUIERDO: Formulario de adición de medicamentos (7 columnas) ──── */}
           <div className="lg:col-span-7 space-y-4">
 
-            {/* Asociación con pieza dental o hallazgo */}
+            {/* Asociación clínica con pieza dental o justificación general */}
             <Select
               label="Asociar a Tratamiento Odontológico (Opcional)"
               value={detalleActual.idPlanTratamiento ?? ''}
@@ -90,7 +126,7 @@ const StepPrescripcion = ({
                 ))}
             </Select>
 
-            {/* Tarjeta de configuración del fármaco */}
+            {/* Configuración posológica del medicamento */}
             <div className="border border-slate-200/80 rounded-3xl p-5 bg-slate-50/50 space-y-4">
               <div className="flex items-center gap-2 text-primary-700">
                 <i className="bi bi-capsule-pill text-base" />
@@ -156,7 +192,7 @@ const StepPrescripcion = ({
             </div>
           </div>
 
-          {/* ── PANEL DERECHO: Previsualización de la Receta (5 cols) ─────────────── */}
+          {/* ── PANEL DERECHO: Previsualización de la Hoja de Receta (5 columnas) ─── */}
           <div className="lg:col-span-5 border border-slate-200/80 rounded-3xl p-5 flex flex-col min-h-[420px] bg-white shadow-xs">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
               <div className="flex items-center gap-2">
