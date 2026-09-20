@@ -5,7 +5,8 @@ import { API_BASE_URL } from '../config/api.config';
  * Provee un cliente HTTP centralizado (patrón Wrapper sobre Fetch API) para todas las peticiones
  * autenticadas hacia el backend. Automatiza la inyección de encabezados de autorización Bearer JWT,
  * gestiona respuestas sin contenido (HTTP 204) e intercepta expiraciones de sesión (HTTP 401)
- * forzando el cierre de sesión seguro en el cliente.
+ * delegando la respuesta a un manejador externo registrado por el AuthContext para garantizar
+ * la consistencia del estado reactivo de sesión antes de redirigir.
  *
  * Ubicación y Rol:
  * Capa de Servicios de Red (src/services/api.service.js).
@@ -20,12 +21,38 @@ import { API_BASE_URL } from '../config/api.config';
  * - Consume:
  *   - src/config/api.config.js (API_BASE_URL)
  *   - localStorage ('authToken')
+ * - setUnauthorizedHandler invocado desde:
+ *   - src/context/AuthContext.jsx (registra logout() + redirección al iniciar el proveedor)
  *
  * @param {string} endpoint - Ruta relativa del recurso solicitado (ejemplo: '/citas', '/pacientes/5').
  * @param {RequestInit} [options={}] - Parámetros de configuración estándar de Fetch API (method, body, headers, etc.).
  * @returns {Promise<any|null>} Promesa que resuelve al cuerpo de la respuesta en formato JSON, o null en respuestas sin contenido.
  * @throws {Error} Arroja una excepción con el mensaje de error provisto por el backend o el código de estado HTTP.
  */
+
+/**
+ * Callback invocado cuando el backend responde con HTTP 401 (token expirado o inválido).
+ * Por defecto realiza el logout mínimo directo sobre localStorage; se sobreescribe por
+ * AuthContext mediante 'setUnauthorizedHandler' para garantizar que el estado reactivo
+ * de React también se limpie correctamente antes de la redirección.
+ */
+let _onUnauthorized = () => {
+  localStorage.clear();
+  window.location.replace('/');
+};
+
+/**
+ * Propósito:
+ * Registra el manejador de sesión expirada para que el interceptor HTTP 401 pueda
+ * delegar el logout al AuthContext en lugar de manipular el almacenamiento directamente.
+ * Debe ser llamado una única vez desde AuthProvider al montarse.
+ *
+ * @param {() => void} handler - Función de logout reactivo provista por AuthContext.
+ */
+export const setUnauthorizedHandler = (handler) => {
+  _onUnauthorized = handler;
+};
+
 export const apiFetch = async (endpoint, options = {}) => {
   const token = localStorage.getItem('authToken');
 
@@ -39,11 +66,10 @@ export const apiFetch = async (endpoint, options = {}) => {
     },
   });
 
-  // Se intercepta el error de no autorización (HTTP 401) para revocar la sesión local
-  // y prevenir que la interfaz permanezca en un estado inconsistente o con datos desactualizados
+  // Se delega al handler registrado por AuthContext para limpiar el estado reactivo
+  // antes de redirigir, evitando que la interfaz quede en un estado inconsistente
   if (response.status === 401) {
-    localStorage.clear();
-    window.location.replace('/');
+    _onUnauthorized();
     return null;
   }
 

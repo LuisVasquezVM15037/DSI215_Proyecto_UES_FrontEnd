@@ -160,15 +160,22 @@ export const useAgenda = (date) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
 
   /**
-   * Orquesta la persistencia de una cita (creación o actualización) e invalida la caché
+   * Orquesta la persistencia de una cita (creación o actualización) e invalida la caché.
+   * Acepta 'overrideData' como fuente de datos validada externamente (React Hook Form),
+   * evitando la condición de carrera entre el batch asíncrono de setState y el submit.
+   * Si no se provee overrideData, se usa formData interno como respaldo.
+   *
+   * @param {Function} onSuccess - Callback invocado tras una persistencia exitosa.
+   * @param {Object} [overrideData] - Datos validados por RHF provistos desde AppointmentForm.
    */
-  const handleSubmit = async (onSuccess) => {
+  const handleSubmit = async (onSuccess, overrideData) => {
     setMutating(true);
     try {
+      const base = overrideData || formData;
       const payload = {
-        ...formData,
-        idPaciente:   parseInt(formData.idPaciente, 10),
-        idOdontologo: parseInt(formData.idOdontologo, 10),
+        ...base,
+        idPaciente:   parseInt(base.idPaciente, 10),
+        idOdontologo: parseInt(base.idOdontologo, 10),
       };
       if (isEditing) {
         await updateCita(selectedCita.idCitas, payload);

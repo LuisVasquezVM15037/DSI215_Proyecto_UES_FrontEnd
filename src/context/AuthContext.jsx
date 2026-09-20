@@ -20,6 +20,7 @@
  *   - 'src/hooks/useHomeDashboard.js'
  * - Consume:
  *   - 'src/services/auth.service.js' (loginService, saveSession, clearSession, getToken, getUserName, getUserRole)
+ *   - 'src/services/api.service.js' (setUnauthorizedHandler — registra el logout reactivo como interceptor de 401)
  *   - 'src/constants/roles.constants.js' (normalizeRole)
  *   - React (createContext, useContext, useState, useEffect, useMemo, useCallback)
  */
@@ -33,6 +34,7 @@ import {
   saveSession,
   loginService,
 } from '../services/auth.service';
+import { setUnauthorizedHandler } from '../services/api.service';
 import { normalizeRole } from '../constants/roles.constants';
 
 const AuthContext = createContext(null);
@@ -105,6 +107,16 @@ export const AuthProvider = ({ children }) => {
     };
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
+  }, [logout]);
+
+  // Registra logout() como interceptor de sesión expirada en el cliente HTTP centralizado.
+  // Garantiza que un HTTP 401 del backend limpie el estado reactivo de React (no solo localStorage)
+  // antes de redirigir al login, manteniendo la coherencia entre la capa de red y el AuthContext.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      logout();
+      window.location.replace('/');
+    });
   }, [logout]);
 
   // Objeto de contexto estable y memoizado

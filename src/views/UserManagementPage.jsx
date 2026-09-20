@@ -87,17 +87,11 @@ const UserManagementPage = () => {
     handleSubmit, handleCancel, handleDelete,
   } = useUserManagement();
 
-  // Determina si el rol actualmente seleccionado corresponde al perfil clínico odontológico
-  const rolSeleccionado = roles.find(r => String(r.idRol) === String(formData.idRol));
-  const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
+  // Integración de React Hook Form para validación declarativa.
+  // El resolver usa una referencia mutable (schemaRef) para siempre validar con el schema
+  // correcto en el momento del submit, sin necesidad de reinicializar useForm cuando el rol cambia.
+  const schemaRef = React.useRef(getUserSchema(isEditing, false));
 
-  // Memoización del esquema dinámico según contexto de edición y rol
-  const currentSchema = useMemo(
-    () => getUserSchema(isEditing, esOdontologo),
-    [isEditing, esOdontologo],
-  );
-
-  // Integración de React Hook Form para validación declarativa
   const {
     handleSubmit: handleFormSubmit,
     setValue,
@@ -105,9 +99,23 @@ const UserManagementPage = () => {
     reset,
     formState: { errors },
   } = useForm({
-    resolver: zodResolver(currentSchema),
+    resolver: (...args) => zodResolver(schemaRef.current)(...args),
     defaultValues: formData,
   });
+
+  // Deriva el idRol directamente desde RHF (fuente única de verdad visual del formulario)
+  // para evitar la divergencia entre el estado del hook (formData.idRol) y el valor observable
+  // en el campo. El hook aún recibe handleChange para mantener su formData sincronizado.
+  const watchedRolId = watch('idRol');
+  const rolSeleccionado = roles.find(r => String(r.idRol) === String(watchedRolId));
+  const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
+
+  // Mantiene el schema actualizado en la referencia mutable cuando el rol o el modo cambian.
+  // El resolver del formulario leerá schemaRef.current en el momento de cada validación.
+  schemaRef.current = useMemo(
+    () => getUserSchema(isEditing, esOdontologo),
+    [isEditing, esOdontologo],
+  );
 
   // Sincronización de campos de React Hook Form al seleccionar usuario o limpiar
   useEffect(() => {

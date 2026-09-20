@@ -368,7 +368,7 @@ const AppointmentPage = () => {
               odontologos={agenda.odontologos}
               loading={agenda.loading}
               onChange={agenda.handleChange}
-              onSubmit={() => agenda.handleSubmit(handleFormSuccess)}
+              onSubmit={(validatedData) => agenda.handleSubmit(handleFormSuccess, validatedData)}
               onCancelar={() => setShowForm(false)}
             />
           )}
