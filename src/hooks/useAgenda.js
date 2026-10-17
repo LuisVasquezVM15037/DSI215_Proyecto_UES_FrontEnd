@@ -92,11 +92,14 @@ export const useAgenda = (date) => {
     [appointments],
   );
 
-  // ── Preparacion de formulario ────────────────────────────────────────────────────
-  const prepararNuevaCita = () => {
+  const prepararNuevaCita = (pacienteId = null) => {
     setIsEditing(false);
     setSelectedCita(null);
-    setFormData({ ...FORM_INICIAL, fechaCita: fechaSeleccionada });
+    setFormData({
+      ...FORM_INICIAL,
+      idPaciente: pacienteId ? String(pacienteId) : '',
+      fechaCita: fechaSeleccionada,
+    });
   };
 
   const prepararEditarCita = (cita) => {

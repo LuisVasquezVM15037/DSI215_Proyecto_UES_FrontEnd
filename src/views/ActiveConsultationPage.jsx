@@ -136,6 +136,10 @@ const ActiveConsultationPage = () => {
           hallazgos={consulta.hallazgos}
           prescripcion={prescripcion.prescripcion}
           onVolver={() => navigate('/consulta')}
+          onAgendarSiguiente={() => {
+            const pacienteId = consulta.cita?.idPaciente || consulta.cita?.paciente?.idPaciente;
+            navigate(`/citas?pacienteId=${pacienteId}&nuevaCita=true`);
+          }}
         />
       )}
     </div>

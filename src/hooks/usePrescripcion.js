@@ -55,7 +55,7 @@ export const usePrescripcion = (citaId, onGuardado) => {
     const med = medicamentos.find(m => m.idMedicamento === parseInt(idMedicamento));
     const hallazgo = hallazgos.find(h => h.idPlanTratamiento === parseInt(detalleActual.idPlanTratamiento));
     const justificacionVisual = hallazgo
-      ? `Pieza ${hallazgo.piezaDental} - ${hallazgo.nombreTratamiento}`
+      ? `${hallazgo.piezaDental ? `Pieza ${hallazgo.piezaDental}` : 'General'} - ${hallazgo.nombreTratamiento}`
       : 'Prescripción General';
 
     setDetalles(prev => [...prev, {
@@ -69,8 +69,8 @@ export const usePrescripcion = (citaId, onGuardado) => {
   const handleEliminarDetalle = (index) =>
     setDetalles(prev => prev.filter((_, i) => i !== index));
 
-  /** Guarda la prescripción y cambia el estado de la cita a FINALIZADA */
-  const handleGuardarPrescripcion = async () => {
+  /** Guarda la prescripción y actualiza el estado de la cita */
+  const handleGuardarPrescripcion = async (onSuccess) => {
     if (detalles.length === 0) {
       alertWarning('Agrega al menos un medicamento antes de guardar.');
       return;
@@ -91,16 +91,10 @@ export const usePrescripcion = (citaId, onGuardado) => {
 
       const data = await createPrescripcion(payload);
       setPrescripcion(data);
+      setDetalles([]); // Limpiamos el borrador local ya que están guardados en la BD
 
-      // Cambiar estado de la cita — si falla no bloqueamos al usuario
-      try {
-        await cambiarEstado(citaId, 'FINALIZADA');
-      } catch (err) {
-        console.error('Prescripción guardada pero fallo al cambiar estado de cita:', err.message);
-      }
-
-      alertSuccess('Prescripción guardada', '', 1800);
-      onGuardado?.();
+      alertSuccess('Receta actualizada', 'Los medicamentos se han guardado en la prescripción.');
+      onSuccess?.();
     } catch (err) {
       alertError(err.message);
     } finally {

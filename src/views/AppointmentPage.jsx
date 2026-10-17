@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAgenda } from '../hooks/useAgenda';
 import AppointmentCard from '../components/AppointmentCard';
 import AppointmentForm from '../components/AppointmentForm';
@@ -68,8 +69,20 @@ const AppointmentPage = () => {
   const [viewDate, setViewDate] = useState(new Date()); // mes mostrado en el calendario
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [searchParams] = useSearchParams();
+
   /// Hooks de datos y lógica
   const agenda = useAgenda(selectedDate);
+
+  // Reagendación automática si viene pacienteId en la URL
+  useEffect(() => {
+    const pacienteId = searchParams.get('pacienteId');
+    const autoNueva = searchParams.get('nuevaCita');
+    if (pacienteId || autoNueva) {
+      agenda.prepararNuevaCita(pacienteId);
+      setShowForm(true);
+    }
+  }, [searchParams]);
   // Filtra pacientes cuyo nombre o DUI coincida con el término buscado
   const pacientesFiltrados = searchTerm.trim().length > 1
     ? agenda.pacientes.filter(p =>

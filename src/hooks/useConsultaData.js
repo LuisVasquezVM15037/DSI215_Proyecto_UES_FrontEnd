@@ -117,11 +117,12 @@ export const useConsultaData = (citaId) => {
   // ── Finalizar consulta ────────────────────────────────────────────────────
   const handleFinalizarConsulta = async (onSuccess) => {
     try {
-      await cambiarEstado(citaId, 'FINALIZADA');
-      setCita(prev => ({ ...prev, estadoCita: 'FINALIZADA' }));
+      await cambiarEstado(citaId, 'COMPLETADA');
+      setCita(prev => ({ ...prev, estadoCita: 'COMPLETADA' }));
+      toastSuccess('Consulta y cita finalizadas');
     } catch (err) {
-      // Si falla el cambio de estado, avanzar igual (prescripción ya guardada)
       console.error('No se pudo cambiar el estado de la cita:', err.message);
+      alertError('Aviso: ' + (err.message || 'No se pudo actualizar el estado de la cita.'));
     } finally {
       onSuccess?.();
     }
