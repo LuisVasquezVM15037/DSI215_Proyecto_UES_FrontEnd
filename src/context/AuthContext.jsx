@@ -27,3 +27,5 @@ export const useAuthContext = () => {
   if (!ctx) throw new Error('useAuthContext debe usarse dentro de <AuthProvider>');
   return ctx;
 };
+
+export const useAuth = useAuthContext;

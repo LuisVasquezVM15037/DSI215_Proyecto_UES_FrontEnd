@@ -1,6 +1,34 @@
+/**
+ * Propósito:
+ * Componente visual para renderizar las iniciales de una persona o paciente en un círculo tipo avatar.
+ * Asigna un gradiente cromático determinista basado en el código de caracteres de las iniciales
+ * para brindar variedad visual coherente en listas de pacientes o usuarios, o muestra un tono neutro
+ * si se encuentra marcado como inactivo.
+ *
+ * Ubicación y Rol:
+ * Ubicado en 'src/components/ui/AvatarBadge.jsx'. Elemento de presentación en la capa
+ * de componentes de interfaz atómicos.
+ *
+ * Trazabilidad (Referencias):
+ * - Invocado desde:
+ *   - 'src/components/AppointmentCard.jsx'
+ *   - 'src/views/PatientManagementPage.jsx'
+ *   - 'src/views/UserManagementPage.jsx'
+ * - Consume:
+ *   - React.
+ *
+ * Parámetros y Retornos:
+ * @param {Object} props - Propiedades del avatar.
+ * @param {string} [props.initials='?'] - Cadena con las iniciales a mostrar (se toman hasta 2 caracteres).
+ * @param {'xs'|'sm'|'md'|'lg'} [props.size='md'] - Tamaño geométrico y tipográfico del contenedor.
+ * @param {boolean} [props.inactive=false] - Si es true, suprime el degradado de color y aplica tonalidad gris inactiva.
+ * @param {string} [props.className=''] - Clases utilitarias adicionales de Tailwind.
+ * @returns {JSX.Element} Avatar circular estilizado con iniciales mayúsculas.
+ */
+
 import React from 'react';
 
-// SIZES: define el tamaño del círculo y el tamaño de fuente según el prop `size`.
+// Escala de dimensiones y tipografías para mantener consistencia proporcional
 const SIZES = {
   xs: 'w-6 h-6 text-[10px]',
   sm: 'w-8 h-8 text-xs',
@@ -8,38 +36,32 @@ const SIZES = {
   lg: 'w-11 h-11 text-base',
 };
 
-// COLORS: paleta de colores de fondo disponibles para el avatar.
-const COLORS = [
-  'bg-sky-600',
-  'bg-violet-600',
-  'bg-emerald-600',
-  'bg-amber-500',
-  'bg-rose-600',
-  'bg-indigo-600',
+// Paleta de gradientes para asignar identidad cromática diferenciada
+const GRADIENTS = [
+  'from-sky-600 to-blue-700 text-white',
+  'from-teal-500 to-emerald-600 text-white',
+  'from-indigo-600 to-purple-700 text-white',
+  'from-amber-500 to-orange-600 text-white',
+  'from-rose-500 to-pink-600 text-white',
+  'from-cyan-500 to-primary-600 text-white',
 ];
 
-/**
- * Avatar circular con iniciales.
- * El color se elige automáticamente según las iniciales para consistencia.
- */
-//initials son las Iniciales a mostrar (máx. 2 caracteres).
-//size     Tamaño del avatar, por defecto md
-//inactive  Si esta inactivo, pinta el avatar de gris
-
 const AvatarBadge = ({ initials = '?', size = 'md', inactive = false, className = '' }) => {
- 
-  const colorIdx = initials.charCodeAt(0) % COLORS.length;  // Color  basado en el primer carácter del nombre
-  const color = inactive ? 'bg-slate-300' : COLORS[colorIdx]; //iUsuario inactivo, el avatar de gris
+  // Función hash simple basada en el valor ASCII del primer carácter para consistencia cromática
+  const charCode = initials?.charCodeAt(0) || 0;
+  const colorIdx = charCode % GRADIENTS.length;
+  const gradient = inactive ? 'bg-slate-300 text-slate-600' : `bg-gradient-to-br ${GRADIENTS[colorIdx]}`;
 
   return (
     <div className={`
-      ${SIZES[size] ?? SIZES.md} ${color}
-      rounded-full flex items-center justify-center
-      font-bold text-white flex-shrink-0 select-none
+      ${SIZES[size] ?? SIZES.md} ${gradient}
+      rounded-full flex items-center justify-center font-bold tracking-tight
+      flex-shrink-0 select-none shadow-xs ring-2 ring-white
       ${className}
     `}>
-      {initials.slice(0, 2).toUpperCase()} 
-    </div> //Solo muestra 2 caracteres en mayuscula
+      {/* Recorte a máximo dos letras en mayúsculas para encajar adecuadamente en el contenedor */}
+      {initials.slice(0, 2).toUpperCase()}
+    </div>
   );
 };
 
