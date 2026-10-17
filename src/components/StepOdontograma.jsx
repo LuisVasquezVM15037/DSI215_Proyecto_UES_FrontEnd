@@ -36,7 +36,7 @@ const StepOdontograma = ({
     if (!hallazgos?.length) return [];
     return [{
       label: 'Hallazgo registrado',
-      teeth: hallazgos.map(h => `teeth-${h.piezaDental}`),
+      teeth: hallazgos.filter(h => Boolean(h.piezaDental)).map(h => `teeth-${h.piezaDental}`),
       fillColor:    '#fee2e2',
       outlineColor: '#ef4444',
     }];

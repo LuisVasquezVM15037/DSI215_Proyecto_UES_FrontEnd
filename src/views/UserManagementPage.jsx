@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useUserManagement } from '../hooks/useUserManagement';
 import Button from '../components/ui/Button';
 import AvatarBadge from '../components/ui/AvatarBadge';

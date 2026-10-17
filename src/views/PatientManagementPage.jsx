@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { usePatientManagement } from '../hooks/usePatientManagement';
 import SearchInput from '../components/ui/SearchInput';
 import Button from '../components/ui/Button';
