@@ -18,6 +18,7 @@ const StepOdontograma = ({
   selectedTeeth,
   selectedTratamiento, setSelectedTratamiento,
   customPrecio, setCustomPrecio,
+  esGeneral = false, setEsGeneral,
   savingHallazgo,
   onOdontogramChange,
   onRegistrarHallazgo,
@@ -137,24 +138,49 @@ const StepOdontograma = ({
       <aside className="w-72 flex-shrink-0 flex flex-col bg-white rounded-2xl
                         border border-slate-200 shadow-card p-4 gap-4 overflow-y-auto">
 
-        <h6 className="font-bold text-slate-800 text-sm">Registrar hallazgo</h6>
+        <h6 className="font-bold text-slate-800 text-sm">Registrar hallazgo / procedimiento</h6>
+
+        {/* Selector de Ámbito: Por Pieza vs General (ej. Limpieza Dental) */}
+        <div className="flex bg-slate-100 p-1 rounded-xl gap-1">
+          <button
+            type="button"
+            onClick={() => setEsGeneral?.(false)}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              !esGeneral ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <i className="bi bi-bullseye me-1" /> Por Pieza
+          </button>
+          <button
+            type="button"
+            onClick={() => setEsGeneral?.(true)}
+            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+              esGeneral ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <i className="bi bi-shield-plus me-1" /> General (Boca)
+          </button>
+        </div>
 
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">
-            Piezas seleccionadas (FDI)
+            {esGeneral ? 'Ámbito clínico' : 'Piezas seleccionadas (FDI)'}
           </label>
           <input
             type="text"
-            value={piecesText}
+            value={esGeneral ? 'Procedimiento General (Toda la cavidad bucal / Limpieza)' : piecesText}
             readOnly
-            placeholder="Selecciona en el odontograma..."
-            className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-slate-50
-                       text-slate-600 outline-none"
+            placeholder={esGeneral ? 'Toda la cavidad bucal' : 'Selecciona en el odontograma...'}
+            className={`w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl outline-none ${
+              esGeneral ? 'bg-teal-50 text-teal-800 font-medium' : 'bg-slate-50 text-slate-600'
+            }`}
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Tratamiento</label>
+          <label className="block text-xs font-medium text-slate-600 mb-1">
+            {esGeneral ? 'Procedimiento' : 'Tratamiento'}
+          </label>
           <TratamientoSelector
             tratamientos={tratamientos}
             selectedId={selectedTratamiento}
@@ -187,10 +213,10 @@ const StepOdontograma = ({
           fullWidth
           onClick={onRegistrarHallazgo}
           loading={savingHallazgo}
-          disabled={selectedTeeth.length === 0 || !selectedTratamiento || savingHallazgo}
+          disabled={(!esGeneral && selectedTeeth.length === 0) || !selectedTratamiento || savingHallazgo}
         >
           <i className="bi bi-plus-circle" />
-          Registrar hallazgo
+          {esGeneral ? 'Registrar procedimiento general' : 'Registrar hallazgo'}
         </Button>
 
         <div className="mt-auto flex flex-col gap-2">

@@ -11,14 +11,21 @@ const FieldLabel = ({ children, required }) => (
   </label>
 );
 
-const Input = ({ ...props }) => (
-  <input
-    {...props}
-    className={`w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white
-                text-slate-800 placeholder-slate-400 outline-none
-                focus:ring-2 focus:ring-primary-500 focus:border-transparent
-                transition-all ${props.className ?? ''}`}
-  />
+const Input = ({ error, ...props }) => (
+  <div>
+    <input
+      {...props}
+      className={`w-full px-3 py-2.5 text-sm border rounded-xl bg-white
+                  text-slate-800 placeholder-slate-400 outline-none
+                  focus:ring-2 focus:ring-primary-500 focus:border-transparent
+                  transition-all ${error ? 'border-red-400 focus:ring-red-400' : 'border-slate-200'} ${props.className ?? ''}`}
+    />
+    {error && (
+      <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+        <i className="bi bi-exclamation-circle" /> {error}
+      </p>
+    )}
+  </div>
 );
 
 const Select = ({ children, ...props }) => (
@@ -42,6 +49,8 @@ const UserManagementPage = () => {
     handleSelect, handleChange,
     handleSubmit, handleCancel, handleDelete,
   } = useUserManagement();
+
+  const [formErrors, setFormErrors] = React.useState({});
 
   const rolSeleccionado = roles.find(r => String(r.idRol) === String(formData.idRol));
   const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
@@ -148,7 +157,11 @@ const UserManagementPage = () => {
                   name="nombreUsuario"
                   placeholder="María"
                   value={formData.nombreUsuario}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    if (formErrors.nombreUsuario) setFormErrors(p => ({ ...p, nombreUsuario: '' }));
+                  }}
+                  error={formErrors.nombreUsuario}
                 />
               </div>
               <div>
@@ -157,7 +170,11 @@ const UserManagementPage = () => {
                   name="apellidoUsuario"
                   placeholder="González"
                   value={formData.apellidoUsuario}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    if (formErrors.apellidoUsuario) setFormErrors(p => ({ ...p, apellidoUsuario: '' }));
+                  }}
+                  error={formErrors.apellidoUsuario}
                 />
               </div>
             </div>
@@ -170,7 +187,11 @@ const UserManagementPage = () => {
                   name="usernameUsuario"
                   placeholder="mgonzalez"
                   value={formData.usernameUsuario}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    if (formErrors.usernameUsuario) setFormErrors(p => ({ ...p, usernameUsuario: '' }));
+                  }}
+                  error={formErrors.usernameUsuario}
                 />
               </div>
               <div>
@@ -180,7 +201,11 @@ const UserManagementPage = () => {
                   name="emailUsuario"
                   placeholder="usuario@clinica.com"
                   value={formData.emailUsuario}
-                  onChange={handleChange}
+                  onChange={(e) => {
+                    handleChange(e);
+                    if (formErrors.emailUsuario) setFormErrors(p => ({ ...p, emailUsuario: '' }));
+                  }}
+                  error={formErrors.emailUsuario}
                 />
               </div>
             </div>
@@ -193,21 +218,38 @@ const UserManagementPage = () => {
               <Input
                 type="password"
                 name="password"
-                placeholder={isEditing ? '••••••••' : 'Contraseña segura'}
+                placeholder={isEditing ? '••••••••' : 'Mínimo 6 caracteres'}
                 value={formData.password}
-                onChange={handleChange}
+                onChange={(e) => {
+                  handleChange(e);
+                  if (formErrors.password) setFormErrors(p => ({ ...p, password: '' }));
+                }}
                 autoComplete="new-password"
+                error={formErrors.password}
               />
             </div>
 
             {/* Rol */}
             <div>
               <FieldLabel required>Rol en el sistema</FieldLabel>
-              <Select name="idRol" value={formData.idRol} onChange={handleChange}>
+              <Select
+                name="idRol"
+                value={formData.idRol}
+                onChange={(e) => {
+                  handleChange(e);
+                  if (formErrors.idRol) setFormErrors(p => ({ ...p, idRol: '' }));
+                }}
+              >
+                <option value="">Selecciona un rol...</option>
                 {roles.map(r => (
                   <option key={r.idRol} value={r.idRol}>{r.nombreRol}</option>
                 ))}
               </Select>
+              {formErrors.idRol && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <i className="bi bi-exclamation-circle" /> {formErrors.idRol}
+                </p>
+              )}
             </div>
 
             {/* Campos exclusivos de Odontólogo */}
@@ -219,7 +261,11 @@ const UserManagementPage = () => {
                     name="especialidadOdontologo"
                     placeholder="Ortodoncia"
                     value={formData.especialidadOdontologo ?? ''}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (formErrors.especialidadOdontologo) setFormErrors(p => ({ ...p, especialidadOdontologo: '' }));
+                    }}
+                    error={formErrors.especialidadOdontologo}
                   />
                 </div>
                 <div>
@@ -228,7 +274,11 @@ const UserManagementPage = () => {
                     name="jvpoId"
                     placeholder="JVPO-004"
                     value={formData.jvpoId ?? ''}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (formErrors.jvpoId) setFormErrors(p => ({ ...p, jvpoId: '' }));
+                    }}
+                    error={formErrors.jvpoId}
                   />
                 </div>
               </div>
@@ -255,7 +305,41 @@ const UserManagementPage = () => {
               <Button variant="secondary" onClick={handleCancel} disabled={loading}>
                 Cancelar
               </Button>
-              <Button fullWidth onClick={handleSubmit} loading={loading}>
+              <Button
+                fullWidth
+                onClick={() => {
+                  const errors = {};
+                  if (!formData.nombreUsuario?.trim()) errors.nombreUsuario = 'El nombre es obligatorio.';
+                  if (!formData.apellidoUsuario?.trim()) errors.apellidoUsuario = 'El apellido es obligatorio.';
+                  if (!formData.usernameUsuario?.trim() || formData.usernameUsuario.trim().length < 3) {
+                    errors.usernameUsuario = 'El nombre de usuario debe tener al menos 3 caracteres.';
+                  }
+                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                  if (!formData.emailUsuario?.trim() || !emailRegex.test(formData.emailUsuario.trim())) {
+                    errors.emailUsuario = 'Ingresa un correo electrónico con formato válido.';
+                  }
+                  if (!isEditing && (!formData.password || formData.password.length < 6)) {
+                    errors.password = 'La contraseña debe contener al menos 6 caracteres.';
+                  }
+                  if (!formData.idRol) {
+                    errors.idRol = 'Debe seleccionar un rol para el usuario.';
+                  }
+                  if (esOdontologo) {
+                    if (!formData.especialidadOdontologo?.trim()) {
+                      errors.especialidadOdontologo = 'La especialidad es obligatoria para odontólogos.';
+                    }
+                    if (!formData.jvpoId?.trim()) {
+                      errors.jvpoId = 'El número de JVPO es obligatorio para odontólogos.';
+                    }
+                  }
+
+                  setFormErrors(errors);
+                  if (Object.keys(errors).length === 0) {
+                    handleSubmit();
+                  }
+                }}
+                loading={loading}
+              >
                 {isEditing ? 'Guardar Cambios' : 'Crear Usuario'}
               </Button>
             </div>

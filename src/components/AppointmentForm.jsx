@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { ESTADOS_CITA_OPCIONES } from '../constants/estados.constants';
 import Button from './ui/Button';
+import SearchableSelect from './ui/SearchableSelect';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-
-//Tarjeta de cita con acciones de crear, editar, cancelar y reprogramar. El botón de cancelar se muestra solo si el estado de la cita lo permite (no está cancelada, completada o finalizada). El botón de reprogramar se muestra solo si el padre pasa el prop `onReprogram`. En modo compacto, solo se muestran el nombre del paciente y el estado, junto con los botones de acción.
 
 const Label = ({ children, required }) => (
   <label className="block text-xs font-medium text-slate-600 mb-1">
@@ -14,10 +13,10 @@ const Label = ({ children, required }) => (
 const Input = (props) => (
   <input
     {...props}
-    className={`w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl bg-white
+    className={`w-full px-3 py-2.5 text-sm border rounded-xl bg-white
                 text-slate-800 placeholder-slate-400 outline-none
                 focus:ring-2 focus:ring-primary-500 focus:border-transparent
-                transition-all ${props.className ?? ''}`}
+                transition-all ${props.error ? 'border-red-400' : 'border-slate-200'} ${props.className ?? ''}`}
   />
 );
 
@@ -32,37 +31,69 @@ const Select = ({ children, ...props }) => (
   </select>
 );
 
-/**
- * Suma 1 hora a un valor de <input type="datetime-local"> ("YYYY-MM-DDTHH:mm")
- * y lo devuelve en el mismo formato y en hora LOCAL (sin pasar por UTC).
- */
 const calcularHoraFin = (horaInicio) => {
   if (!horaInicio) return '';
-  const fin = new Date(horaInicio);          // datetime-local sin offset → hora local
+  const fin = new Date(horaInicio);
   if (Number.isNaN(fin.getTime())) return '';
-  fin.setHours(fin.getHours() + 1);          // maneja el cambio de día automáticamente
+  fin.setHours(fin.getHours() + 1);
   const pad = (n) => String(n).padStart(2, '0');
   return `${fin.getFullYear()}-${pad(fin.getMonth() + 1)}-${pad(fin.getDate())}`
     + `T${pad(fin.getHours())}:${pad(fin.getMinutes())}`;
 };
 
-/**
- * Formulario de creación/edición de cita.
- * Puramente presentacional — sin lógica de fetch.
- */
 const AppointmentForm = ({
   isEditing, date, formData,
-  pacientes, odontologos, loading,
+  pacientes = [], odontologos = [], loading,
   onChange, onSubmit, onCancelar,
 }) => {
-  // Al cambiar la hora de inicio: propaga inicio y, además, calcula y propaga fin (+1h).
+  const [errors, setErrors] = useState({});
+
+  const pacienteOptions = useMemo(() => (
+    pacientes.map(p => ({
+      value: p.idPaciente,
+      label: `${p.nombrePaciente} ${p.apellidoPaciente}`,
+      sublabel: `DUI: ${p.numeroIdentidadPaciente || 'Menor / Sin DUI'}`,
+    }))
+  ), [pacientes]);
+
+  const odontologoOptions = useMemo(() => (
+    odontologos.map(o => ({
+      value: o.idOdontologo,
+      label: `Dr(a). ${o.nombreCompleto}`,
+      sublabel: o.jvpoId ? `JVPO: ${o.jvpoId}` : (o.especialidadOdontologo || 'Especialista'),
+    }))
+  ), [odontologos]);
+
   const handleHoraInicioChange = (e) => {
-    onChange(e);                                                  // 1) hora inicio
-    onChange({ target: { name: 'horaFinCita', value: calcularHoraFin(e.target.value) } }); // 2) hora fin
+    onChange(e);
+    onChange({ target: { name: 'horaFinCita', value: calcularHoraFin(e.target.value) } });
+    if (errors.horaInicioCita) {
+      setErrors(prev => ({ ...prev, horaInicioCita: '' }));
+    }
+  };
+
+  const handleFieldChange = (name, value) => {
+    onChange({ target: { name, value } });
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleValidateAndSubmit = () => {
+    const newErrors = {};
+    if (!formData.idPaciente) newErrors.idPaciente = 'Debe seleccionar un paciente de la lista.';
+    if (!formData.idOdontologo) newErrors.idOdontologo = 'Debe seleccionar un odontólogo especialista.';
+    if (!formData.fechaCita) newErrors.fechaCita = 'La fecha de la cita es obligatoria.';
+    if (!formData.horaInicioCita) newErrors.horaInicioCita = 'La hora de inicio es obligatoria.';
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length === 0) {
+      onSubmit();
+    }
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <h5 className="font-bold text-slate-800">
@@ -74,48 +105,65 @@ const AppointmentForm = ({
       </div>
 
       <div className="space-y-4">
-        {/* Paciente */}
+        {/* Paciente con control de búsqueda predictivo */}
         <div>
           <Label required>Paciente</Label>
-          <Select name="idPaciente" value={formData.idPaciente} onChange={onChange}>
-            <option value="">Seleccione un paciente...</option>
-            {pacientes.map(p => (
-              <option key={p.idPaciente} value={p.idPaciente}>
-                {p.nombrePaciente} {p.apellidoPaciente} — {p.numeroIdentidadPaciente}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            name="idPaciente"
+            value={formData.idPaciente}
+            options={pacienteOptions}
+            onChange={(e) => handleFieldChange('idPaciente', e.target.value)}
+            placeholder="Escribe para buscar paciente por nombre o DUI..."
+            error={errors.idPaciente}
+          />
         </div>
 
-        {/* Odontólogo */}
+        {/* Odontólogo con control de búsqueda predictivo */}
         <div>
-          <Label required>Odontólogo</Label>
-          <Select name="idOdontologo" value={formData.idOdontologo} onChange={onChange}>
-            <option value="">Seleccione un odontólogo...</option>
-            {odontologos.map(o => (
-              <option key={o.idOdontologo} value={o.idOdontologo}>
-                Dr(a). {o.nombreCompleto} -- {o.jvpoId}
-              </option>
-            ))}
-          </Select>
+          <Label required>Odontólogo Especialista</Label>
+          <SearchableSelect
+            name="idOdontologo"
+            value={formData.idOdontologo}
+            options={odontologoOptions}
+            onChange={(e) => handleFieldChange('idOdontologo', e.target.value)}
+            placeholder="Escribe para buscar odontólogo por nombre o JVPO..."
+            error={errors.idOdontologo}
+          />
         </div>
 
         {/* Fecha */}
         <div>
           <Label required>Fecha</Label>
-          <Input type="date" name="fechaCita" value={formData.fechaCita} onChange={onChange} />
+          <Input
+            type="date"
+            name="fechaCita"
+            value={formData.fechaCita}
+            onChange={(e) => handleFieldChange('fechaCita', e.target.value)}
+            error={errors.fechaCita}
+          />
+          {errors.fechaCita && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i className="bi bi-exclamation-circle" /> {errors.fechaCita}
+            </p>
+          )}
         </div>
 
         {/* Horas */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>Hora inicio</Label>
+            <Label required>Hora inicio</Label>
             <Input
               type="datetime-local"
               name="horaInicioCita"
               value={formData.horaInicioCita}
               onChange={handleHoraInicioChange}
+              error={errors.horaInicioCita}
             />
+            {errors.horaInicioCita && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <i className="bi bi-exclamation-circle" /> {errors.horaInicioCita}
+              </p>
+            )}
           </div>
           <div>
             <Label>Hora fin</Label>
@@ -128,14 +176,14 @@ const AppointmentForm = ({
               className="bg-slate-50 text-slate-500 cursor-not-allowed"
               title="Se calcula automáticamente (1 hora de duración)"
             />
-            <p className="mt-1 text-[11px] text-slate-400">Se calcula sola: 1 hora de duración.</p>
+            <p className="mt-1 text-[11px] text-slate-400">Calculada automáticamente (1 hora de duración).</p>
           </div>
         </div>
 
         {/* Estado (solo en edición) */}
         {isEditing && (
           <div>
-            <Label>Estado</Label>
+            <Label>Estado de la cita</Label>
             <Select name="estadoCita" value={formData.estadoCita} onChange={onChange}>
               {ESTADOS_CITA_OPCIONES.map(e => (
                 <option key={e.value} value={e.value}>{e.label}</option>
@@ -149,7 +197,7 @@ const AppointmentForm = ({
           <Button variant="secondary" fullWidth onClick={onCancelar} disabled={loading}>
             Cancelar
           </Button>
-          <Button fullWidth onClick={onSubmit} loading={loading}>
+          <Button fullWidth onClick={handleValidateAndSubmit} loading={loading}>
             {isEditing ? 'Guardar Cambios' : 'Confirmar Cita'}
           </Button>
         </div>

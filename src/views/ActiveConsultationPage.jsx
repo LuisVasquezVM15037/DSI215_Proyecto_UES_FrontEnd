@@ -99,8 +99,11 @@ const ActiveConsultationPage = () => {
           customPrecio={tratamientos.customPrecio}
           setCustomPrecio={tratamientos.setCustomPrecio}
           savingHallazgo={tratamientos.savingHallazgo}
+          esGeneral={tratamientos.esGeneral}
+          setEsGeneral={tratamientos.setEsGeneral}
           onOdontogramChange={tratamientos.handleOdontogramChange}
           onRegistrarHallazgo={tratamientos.handleRegistrarHallazgo}
+          onCrearNuevoTratamiento={tratamientos.handleCrearTratamiento}
           onCrearTratamiento={tratamientos.handleCrearTratamiento}
           onVolver={() => setStep(1)}
           onContinuar={() => setStep(3)}

@@ -39,71 +39,91 @@ const StepEvaluacion = ({
   diagnostico,    setDiagnostico,
   observaciones,  setObservaciones,
   savingEval, onGuardar, onContinuar,
-}) => (
-  <div className="bg-white rounded-2xl border border-slate-200 shadow-card mt-4 animate-fade-in flex-1 overflow-y-auto">
-    <div className="p-6">
-      <h5 className="font-bold text-slate-800 mb-5">Revisión inicial del paciente</h5>
+}) => {
+  const [error, setError] = React.useState('');
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        {/* Alergias */}
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
-          <h6 className="font-bold text-red-700 text-sm flex items-center gap-2 mb-1">
-            <i className="bi bi-exclamation-triangle-fill" />Alergias y alertas
-          </h6>
-          <p className="text-xs text-red-600">
-            Verificar alergias en el expediente del paciente antes de proceder.
-          </p>
+  const handleSave = () => {
+    if (!diagnostico?.trim()) {
+      setError('El diagnóstico inicial es obligatorio para avanzar al odontograma.');
+      return;
+    }
+    setError('');
+    onGuardar();
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-card mt-4 animate-fade-in flex-1 overflow-y-auto">
+      <div className="p-6">
+        <h5 className="font-bold text-slate-800 mb-5">Revisión inicial del paciente</h5>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {/* Alergias */}
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl">
+            <h6 className="font-bold text-red-700 text-sm flex items-center gap-2 mb-1">
+              <i className="bi bi-exclamation-triangle-fill" />Alergias y alertas
+            </h6>
+            <p className="text-xs text-red-600">
+              Verificar alergias en el expediente del paciente antes de proceder.
+            </p>
+          </div>
+
+          {/* Estado de la cita */}
+          <div className="p-4 bg-primary-50 border border-primary-200 rounded-xl">
+            <h6 className="font-bold text-primary-700 text-sm mb-2">Estado de la cita</h6>
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
+              ${cita.estadoCita === 'PROGRAMADA'
+                ? 'bg-amber-100 text-amber-700'
+                : 'bg-emerald-100 text-emerald-700'}`}>
+              {cita.estadoCita}
+            </span>
+          </div>
         </div>
 
-        {/* Estado de la cita */}
-        <div className="p-4 bg-primary-50 border border-primary-200 rounded-xl">
-          <h6 className="font-bold text-primary-700 text-sm mb-2">Estado de la cita</h6>
-          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
-            ${cita.estadoCita === 'PROGRAMADA'
-              ? 'bg-amber-100 text-amber-700'
-              : 'bg-emerald-100 text-emerald-700'}`}>
-            {cita.estadoCita}
-          </span>
+        {/* Diagnóstico */}
+        <div className="mb-4">
+          <FieldLabel required>Diagnóstico inicial</FieldLabel>
+          <Textarea
+            rows={3}
+            placeholder="Describe el motivo de consulta y hallazgos iniciales..."
+            value={diagnostico}
+            onChange={e => {
+              setDiagnostico(e.target.value);
+              if (error) setError('');
+            }}
+            className={error ? 'border-red-400 focus:ring-red-400' : ''}
+          />
+          {error && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i className="bi bi-exclamation-circle" /> {error}
+            </p>
+          )}
         </div>
-      </div>
 
-      {/* Diagnóstico */}
-      <div className="mb-4">
-        <FieldLabel required>Diagnóstico inicial</FieldLabel>
-        <Textarea
-          rows={3}
-          placeholder="Describe el motivo de consulta y hallazgos iniciales..."
-          value={diagnostico}
-          onChange={e => setDiagnostico(e.target.value)} // Actualiza el estado del diagnóstico a medida que el médico escribe
-        />
-      </div>
+        {/* Observaciones */}
+        <div className="mb-6">
+          <FieldLabel>Observaciones adicionales</FieldLabel>
+          <Textarea
+            rows={2}
+            placeholder="Observaciones, antecedentes relevantes..."
+            value={observaciones}
+            onChange={e => setObservaciones(e.target.value)}
+          />
+        </div>
 
-      {/* Observaciones */}
-      <div className="mb-6">
-        <FieldLabel>Observaciones adicionales</FieldLabel>
-        <Textarea
-          rows={2} // Menos filas para observaciones, ya que suelen ser más breves
-          placeholder="Observaciones, antecedentes relevantes..."
-          value={observaciones} // Actualiza el estado de las observaciones a medida que el médico escribe
-          onChange={e => setObservaciones(e.target.value)}
-        />
-      </div>
+        <div className="flex justify-end gap-2">
+          {evaluacion && (
+            <Button variant="secondary" onClick={onContinuar}>
+              Continuar sin cambios
+            </Button>
+          )}
 
-      <div className="flex justify-end gap-2">
-        {/* // Si ya existe una evaluación previa, se muestra el botón para continuar sin cambios */}
-        {evaluacion && (
-          <Button variant="secondary" onClick={onContinuar}>
-            Continuar sin cambios
+          <Button onClick={handleSave} loading={savingEval}>
+            Guardar y continuar
           </Button>
-        )}
-        {/* // Botón principal para guardar el diagnóstico y observaciones ingresados, con estado de carga mientras se guarda. al hacer clic, se ejecuta la función onGuardar que maneja la lógica de guardado de la evaluación clínica. */}
-
-        <Button onClick={onGuardar} loading={savingEval}>
-          Guardar y continuar
-        </Button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default StepEvaluacion;

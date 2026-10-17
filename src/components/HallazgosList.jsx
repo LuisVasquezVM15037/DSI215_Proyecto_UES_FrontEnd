@@ -45,10 +45,13 @@ const HallazgosList = ({ hallazgos, onCambiarEstado, onEliminar }) => {
               className="flex items-center gap-2 p-2.5 bg-white border border-slate-100
                          rounded-xl hover:border-slate-200 transition-colors"
             >
-              {/*Badge de Pieza dental */}
-              <span className="w-14 text-center text-xs font-bold text-primary-700
-                               bg-primary-50 rounded-lg py-1 flex-shrink-0">
-                P.{h.piezaDental}
+              {/*Badge de Pieza dental o General */}
+              <span className={`text-center text-xs font-bold rounded-lg py-1 px-2 flex-shrink-0 ${
+                h.piezaDental
+                  ? 'w-14 text-primary-700 bg-primary-50'
+                  : 'text-teal-700 bg-teal-50'
+              }`}>
+                {h.piezaDental ? `P.${h.piezaDental}` : 'General'}
               </span>
 
               {/* Nombre del tratamiento */}

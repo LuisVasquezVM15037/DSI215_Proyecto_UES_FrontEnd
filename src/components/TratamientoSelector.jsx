@@ -51,18 +51,29 @@ const TratamientoSelector = ({
   const seleccionado = tratamientos.find(t => String(t.idTratamiento) === selectedId);
 
   const handleCrear = async () => {
-    if (!nuevo.nombreTratamiento.trim() || !nuevo.costoTratamiento) {
-      setFormError('Nombre y costo son obligatorios.');
+    if (!nuevo.nombreTratamiento.trim()) {
+      setFormError('El nombre del procedimiento o tratamiento es obligatorio.');
+      return;
+    }
+    if (nuevo.costoTratamiento === '' || isNaN(parseFloat(nuevo.costoTratamiento)) || parseFloat(nuevo.costoTratamiento) < 0) {
+      setFormError('El costo debe ser un valor numérico válido mayor o igual a 0.');
       return;
     }
     setFormError('');
     try {
-      await onCrear(nuevo);
+      if (typeof onCrear !== 'function') {
+        throw new Error('Función de creación de procedimiento no disponible.');
+      }
+      await onCrear({
+        nombreTratamiento: nuevo.nombreTratamiento.trim(),
+        descripcionTratamiento: nuevo.descripcionTratamiento?.trim() || nuevo.nombreTratamiento.trim(),
+        costoTratamiento: parseFloat(nuevo.costoTratamiento),
+      });
       setNuevo({ nombreTratamiento: '', descripcionTratamiento: '', costoTratamiento: '' });
       setShowForm(false);
       setOpen(false);
     } catch (err) {
-      setFormError(err.message);
+      setFormError(err.message || 'Error al guardar el tratamiento.');
     }
   };
 

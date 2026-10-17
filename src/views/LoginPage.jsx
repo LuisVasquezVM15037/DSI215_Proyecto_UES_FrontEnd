@@ -19,8 +19,12 @@ const LoginPage = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    if (!identifier.trim() || !password) {
-      setError('Completa todos los campos.');
+    if (!identifier.trim()) {
+      setError('Por favor, ingresa tu correo electrónico o nombre de usuario.');
+      return;
+    }
+    if (!password) {
+      setError('Por favor, ingresa tu contraseña.');
       return;
     }
     setError('');

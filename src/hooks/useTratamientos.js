@@ -13,6 +13,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
   const [selectedTeeth,       setSelectedTeeth]       = useState([]);
   const [selectedTratamiento, setSelectedTratamiento] = useState('');
   const [customPrecio,        setCustomPrecio]        = useState('');
+  const [esGeneral,           setEsGeneral]           = useState(false);
   const [savingHallazgo,      setSavingHallazgo]      = useState(false);
 
   useEffect(() => { loadTratamientos(); }, []);
@@ -31,12 +32,12 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
       alertWarning('Debes guardar el diagnóstico primero.');
       return;
     }
-    if (selectedTeeth.length === 0) {
-      alertWarning('Selecciona al menos una pieza dental en el odontograma.');
+    if (!esGeneral && selectedTeeth.length === 0) {
+      alertWarning('Selecciona al menos una pieza dental en el odontograma, o activa la opción de Procedimiento General.');
       return;
     }
     if (!selectedTratamiento) {
-      alertWarning('Selecciona el tratamiento a registrar.');
+      alertWarning('Selecciona el tratamiento o procedimiento a registrar.');
       return;
     }
     if (!customPrecio || parseFloat(customPrecio) < 0) {
@@ -46,19 +47,30 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
 
     setSavingHallazgo(true);
     try {
-      // FIX BUG-12: crear todos los hallazgos en paralelo
-      await Promise.all(
-        selectedTeeth.map(tooth => {
-          const pieza = tooth.notations?.fdi || tooth.id;
-          return createHallazgo({
-            idEvaluacionClinica: evaluacion.idEvaluacionClinica,
-            idTratamiento:       parseInt(selectedTratamiento),
-            piezaDental:         parseInt(pieza),
-            costoAplicado:       parseFloat(customPrecio),
-          });
-        })
-      );
-      toastSuccess('Hallazgo registrado');
+      if (esGeneral) {
+        // Procedimiento general (boca completa / sin pieza asociada)
+        await createHallazgo({
+          idEvaluacionClinica: evaluacion.idEvaluacionClinica,
+          idTratamiento:       parseInt(selectedTratamiento),
+          piezaDental:         null,
+          costoAplicado:       parseFloat(customPrecio),
+        });
+        toastSuccess('Procedimiento general registrado');
+      } else {
+        // Tratamiento específico por piezas dentales
+        await Promise.all(
+          selectedTeeth.map(tooth => {
+            const pieza = tooth.notations?.fdi || tooth.id;
+            return createHallazgo({
+              idEvaluacionClinica: evaluacion.idEvaluacionClinica,
+              idTratamiento:       parseInt(selectedTratamiento),
+              piezaDental:         parseInt(pieza),
+              costoAplicado:       parseFloat(customPrecio),
+            });
+          })
+        );
+        toastSuccess('Hallazgo registrado');
+      }
       onHallazgoRegistrado?.();
       setSelectedTeeth([]);
       setSelectedTratamiento('');
@@ -76,9 +88,17 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
    */
   const handleCrearTratamiento = async (datos) => {
     const { nombreTratamiento, descripcionTratamiento, costoTratamiento } = datos;
+    if (!nombreTratamiento?.trim()) {
+      throw new Error('El nombre del tratamiento es obligatorio.');
+    }
+    if (costoTratamiento === undefined || isNaN(parseFloat(costoTratamiento)) || parseFloat(costoTratamiento) < 0) {
+      throw new Error('El costo del tratamiento debe ser un número válido mayor o igual a 0.');
+    }
     const nuevoItem = await createTratamiento({
-      nombreTratamiento,
-      descripcionTratamiento: descripcionTratamiento || nombreTratamiento,
+      nombreTratamiento: nombreTratamiento.trim(),
+      descripcionTratamiento: (descripcionTratamiento && descripcionTratamiento.trim())
+        ? descripcionTratamiento.trim()
+        : nombreTratamiento.trim(),
       costoTratamiento: parseFloat(costoTratamiento),
     });
     await loadTratamientos();
@@ -93,6 +113,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
     selectedTeeth,
     selectedTratamiento, setSelectedTratamiento,
     customPrecio,        setCustomPrecio,
+    esGeneral,           setEsGeneral,
     savingHallazgo,
     handleOdontogramChange,
     handleRegistrarHallazgo,
