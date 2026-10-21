@@ -48,6 +48,12 @@ const NAV_ITEMS = [
     allowedRoles: [ROLES.ADMIN],
   },
   {
+    path:  '/inventario',
+    icon:  'bi-box-seam',
+    label: 'Inventario',
+    allowedRoles: [ROLES.ADMIN, ROLES.ASISTENTEODONTOLOGO, ROLES.GERENTE],
+  },
+  {
     path:  '/revisar-accesos',
     icon:  'bi-shield-check',
     label: 'Revisar Accesos',
