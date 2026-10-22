@@ -34,6 +34,7 @@ const PatientManagementPage = lazy(() => import('./views/PatientManagementPage')
 const UserManagementPage = lazy(() => import('./views/UserManagementPage'));
 const ConsultaIndexPage = lazy(() => import('./views/ConsultaIndexPage'));
 const ActiveConsultationPage = lazy(() => import('./views/ActiveConsultationPage'));
+const InventarioPage = lazy(() => import('./views/InventarioPage'));
 
 // Componentes auxiliares ─────────────────────────────────────────────────
 
@@ -131,6 +132,16 @@ export default function App() {
               element={
                 <RoleRoute roles={[ROLES.ADMIN, ROLES.GERENTE]}>
                   <UserManagementPage />
+                </RoleRoute>
+              }
+            />
+
+            {/* Inventario — admin + asistente dental */}
+            <Route
+              path="/inventario"
+              element={
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.ASISTENTEODONTOLOGO, ROLES.GERENTE]}>
+                  <InventarioPage />
                 </RoleRoute>
               }
             />
