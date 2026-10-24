@@ -3,6 +3,7 @@ import { useUserManagement } from '../hooks/useUserManagement';
 import Button from '../components/ui/Button';
 import AvatarBadge from '../components/ui/AvatarBadge';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
+import ModalRestablecerPassword from '../components/seguridad/ModalRestablecerPassword';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 const FieldLabel = ({ children, required }) => (
@@ -51,9 +52,11 @@ const UserManagementPage = () => {
   } = useUserManagement();
 
   const [formErrors, setFormErrors] = React.useState({});
+  const [showResetModal, setShowResetModal] = React.useState(false);
 
   const rolSeleccionado = roles.find(r => String(r.idRol) === String(formData.idRol));
   const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
+  const selectedUser = users.find(u => u.idUsuario === selectedId);
 
   return (
     <div className="flex h-full bg-surface overflow-hidden">
@@ -133,17 +136,27 @@ const UserManagementPage = () => {
               </p>
             </div>
             {isEditing && selectedId && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => handleDelete(
-                  selectedId,
-                  `${formData.nombreUsuario} ${formData.apellidoUsuario}`
-                )}
-                icon={<i className="bi bi-person-slash" />}
-              >
-                Desactivar
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowResetModal(true)}
+                  icon={<i className="bi bi-key-fill text-amber-500" />}
+                >
+                  Restablecer Clave
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => handleDelete(
+                    selectedId,
+                    `${formData.nombreUsuario} ${formData.apellidoUsuario}`
+                  )}
+                  icon={<i className="bi bi-person-slash" />}
+                >
+                  Desactivar
+                </Button>
+              </div>
             )}
           </div>
 
@@ -252,28 +265,35 @@ const UserManagementPage = () => {
               )}
             </div>
 
-            {/* Campos exclusivos de Odontólogo */}
+            {/* Campos exclusivos de ODONTOLOGO */}
             {esOdontologo && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-dental-50/60 border border-dental-200 rounded-xl space-y-4">
+                <p className="text-xs font-semibold text-dental-800 flex items-center gap-1.5">
+                  <i className="bi bi-hospital" /> Datos profesionales de odontólogo
+                </p>
+
                 <div>
-                  <FieldLabel required>Especialidad</FieldLabel>
+                  <FieldLabel required>Especialidad odontológica</FieldLabel>
                   <Input
                     name="especialidadOdontologo"
-                    placeholder="Ortodoncia"
-                    value={formData.especialidadOdontologo ?? ''}
+                    placeholder="ej. Ortodoncia, Endodoncia, General..."
+                    value={formData.especialidadOdontologo}
                     onChange={(e) => {
                       handleChange(e);
-                      if (formErrors.especialidadOdontologo) setFormErrors(p => ({ ...p, especialidadOdontologo: '' }));
+                      if (formErrors.especialidadOdontologo) {
+                        setFormErrors(p => ({ ...p, especialidadOdontologo: '' }));
+                      }
                     }}
                     error={formErrors.especialidadOdontologo}
                   />
                 </div>
+
                 <div>
                   <FieldLabel required>Número de JVPO</FieldLabel>
                   <Input
                     name="jvpoId"
-                    placeholder="JVPO-004"
-                    value={formData.jvpoId ?? ''}
+                    placeholder="ej. JVPO-12345"
+                    value={formData.jvpoId}
                     onChange={(e) => {
                       handleChange(e);
                       if (formErrors.jvpoId) setFormErrors(p => ({ ...p, jvpoId: '' }));
@@ -284,20 +304,43 @@ const UserManagementPage = () => {
               </div>
             )}
 
-            {/* Estado (solo edición) */}
+            {/* Estado y restablecimiento asistido (solo edición) */}
             {isEditing && (
-              <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                <input
-                  type="checkbox"
-                  id="esActivo"
-                  name="esActivo"
-                  checked={formData.esActivo}
-                  onChange={e => handleChange({ target: { name: 'esActivo', value: e.target.checked } })}
-                  className="w-4 h-4 accent-primary-600"
-                />
-                <label htmlFor="esActivo" className="text-sm text-slate-700 font-medium cursor-pointer">
-                  Usuario activo (puede iniciar sesión)
-                </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <input
+                    type="checkbox"
+                    id="esActivo"
+                    name="esActivo"
+                    checked={formData.esActivo}
+                    onChange={e => handleChange({ target: { name: 'esActivo', value: e.target.checked } })}
+                    className="w-4 h-4 accent-primary-600"
+                  />
+                  <label htmlFor="esActivo" className="text-sm text-slate-700 font-medium cursor-pointer">
+                    Usuario activo (puede iniciar sesión)
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl">
+                  <div>
+                    <h6 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <i className="bi bi-shield-lock-fill text-amber-600" /> Asistencia de Contraseña (DENTALCARE-93)
+                    </h6>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Genera una clave provisional y activa cambio obligatorio para el usuario.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="secondary"
+                    onClick={() => setShowResetModal(true)}
+                    icon={<i className="bi bi-key-fill text-amber-600" />}
+                    className="bg-white border-amber-300 text-amber-900 hover:bg-amber-100 flex-shrink-0"
+                  >
+                    Restablecer
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -346,6 +389,13 @@ const UserManagementPage = () => {
           </div>
         </div>
       </main>
+
+      {/* Modal de Restablecimiento de Contraseña (DENTALCARE-93) */}
+      <ModalRestablecerPassword
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
+        user={selectedUser}
+      />
     </div>
   );
 };

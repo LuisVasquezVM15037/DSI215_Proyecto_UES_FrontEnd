@@ -32,7 +32,11 @@ const LoginPage = () => {
     try {
       const data = await loginService(identifier.trim(), password);
       saveSession(data);
-      navigate('/dashboard');
+      if (data.debeCambiarPassword) {
+        navigate('/cambiar-password-obligatorio');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.message || 'Error de conexión con el servidor.');
     } finally {
@@ -197,3 +201,4 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
+
