@@ -19,7 +19,6 @@ import LoadingScreen from './components/ui/LoadingScreen';
 import { ROLES } from './constants/roles.constants';
 
 // Vista con carga ansiosa (eager) — PBI "Revisar accesos".
-
 import AccessReviewPage from './views/AccessReviewPage';
 
 /**
@@ -35,6 +34,11 @@ const UserManagementPage = lazy(() => import('./views/UserManagementPage'));
 const ConsultaIndexPage = lazy(() => import('./views/ConsultaIndexPage'));
 const ActiveConsultationPage = lazy(() => import('./views/ActiveConsultationPage'));
 const InventarioPage = lazy(() => import('./views/InventarioPage'));
+
+// Vistas Sprint 4: Seguridad y Mantenimiento de BD (Admin TI)
+const CambiarPasswordObligatorioPage = lazy(() => import('./views/CambiarPasswordObligatorioPage'));
+const ResetPasswordTokenPage = lazy(() => import('./views/ResetPasswordTokenPage'));
+const MantenimientoRespaldosPage = lazy(() => import('./views/MantenimientoRespaldosPage'));
 
 // Componentes auxiliares ─────────────────────────────────────────────────
 
@@ -69,9 +73,13 @@ export default function App() {
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
 
-          {/* ── Ruta pública ─────────────────────────────────────────────── */}
-          {/* Pantalla de login (único punto de entrada sin sesión) */}
+          {/* ── Rutas públicas / directas ─────────────────────────────────── */}
+          {/* Pantalla de login (punto de entrada sin sesión) */}
           <Route path="/" element={<LoginPage />} />
+
+          {/* Restablecimiento por token criptográfico y cambio obligatorio (DENTALCARE-93) */}
+          <Route path="/cambiar-password-obligatorio" element={<CambiarPasswordObligatorioPage />} />
+          <Route path="/reset-password" element={<ResetPasswordTokenPage />} />
 
           {/* ── Rutas privadas ───────────────────────────────────────────── */}
           {/*
@@ -156,8 +164,17 @@ export default function App() {
               }
             />
 
-            {/* Catch-all dentro del layout: cualquier ruta no definida → 404 */}
+            {/* Respaldos y contingencia de Base de Datos — solo admin (Sprint 4) */}
+            <Route
+              path="/mantenimiento/respaldos"
+              element={
+                <RoleRoute roles={[ROLES.ADMIN]}>
+                  <MantenimientoRespaldosPage />
+                </RoleRoute>
+              }
+            />
 
+            {/* Catch-all dentro del layout: cualquier ruta no definida → 404 */}
             <Route path="*" element={<NotFound />} />
           </Route>
 

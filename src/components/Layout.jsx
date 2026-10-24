@@ -59,6 +59,12 @@ const NAV_ITEMS = [
     label: 'Revisar Accesos',
     allowedRoles: [ROLES.ADMIN],
   },
+  {
+    path:  '/mantenimiento/respaldos',
+    icon:  'bi-database-gear',
+    label: 'Respaldos y BD',
+    allowedRoles: [ROLES.ADMIN],
+  },
 ];
 
 const Layout = () => {
@@ -295,3 +301,4 @@ const Layout = () => {
 };
 
 export default Layout;
+
