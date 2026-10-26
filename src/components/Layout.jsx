@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Propósito:
  * Componente estructural envolvente principal (Layout Shell) de la aplicación.
  * Provee la barra de navegación lateral fija (Sidebar) con filtrado reactivo de opciones
@@ -14,7 +14,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { getUserName, getUserRole, clearSession } from '../services/auth.service';
 import { confirmDialog } from '../utils/alert.utils';
-import { ROLES, normalizeRole } from '../constants/roles.constants';
+import { ROLES, normalizeRole, hasRoleAccess, formatRoleName } from '../constants/roles.constants';
 
 // Configuración de elementos del menú lateral con control de acceso basado en roles (RBAC)
 const NAV_ITEMS = [
@@ -75,7 +75,9 @@ const Layout = () => {
 
   // Obtención y normalización de credenciales de usuario
   const userName = useMemo(() => getUserName() || 'Usuario', []);
-  const userRole = useMemo(() => normalizeRole(getUserRole()) || 'Odontólogo', []);
+  const rawRole = useMemo(() => getUserRole() || 'personal', []);
+  const userRole = useMemo(() => normalizeRole(rawRole), [rawRole]);
+  const displayRole = useMemo(() => formatRoleName(rawRole), [rawRole]);
 
   // Formateo de fecha localized para el encabezado superior
   const todayFormatted = useMemo(() => {
@@ -137,7 +139,7 @@ const Layout = () => {
         {/* Navegación vertical */}
         <nav className="flex-1 flex flex-col items-center gap-2 py-4" aria-label="Navegación principal">
           {NAV_ITEMS
-            .filter(({ allowedRoles }) => !allowedRoles || allowedRoles.includes(userRole))
+            .filter(({ allowedRoles }) => hasRoleAccess(userRole, allowedRoles))
             .map(({ path, icon, label }) => {
               const isActive = location.pathname === path ||
                 (path !== '/dashboard' && location.pathname.startsWith(path));
@@ -246,7 +248,7 @@ const Layout = () => {
                     {userName}
                   </p>
                   <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">
-                    {userRole}
+                    {displayRole}
                   </p>
                 </div>
                 <i className={`bi bi-chevron-${menuOpen ? 'up' : 'down'} text-slate-400 text-[10px] hidden sm:inline`} />
@@ -268,7 +270,7 @@ const Layout = () => {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-800 truncate">{userName}</p>
                       <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-700">
-                        {userRole}
+                        {displayRole}
                       </span>
                     </div>
                   </div>
@@ -301,4 +303,6 @@ const Layout = () => {
 };
 
 export default Layout;
+
+
 

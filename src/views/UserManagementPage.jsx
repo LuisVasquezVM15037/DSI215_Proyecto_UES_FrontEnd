@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { useUserManagement } from '../hooks/useUserManagement';
 import Button from '../components/ui/Button';
 import AvatarBadge from '../components/ui/AvatarBadge';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
 import ModalRestablecerPassword from '../components/seguridad/ModalRestablecerPassword';
+import { formatRoleName } from '../constants/roles.constants';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 const FieldLabel = ({ children, required }) => (
@@ -111,7 +112,7 @@ const UserManagementPage = () => {
                     )}
                   </div>
                   <p className={`text-xs truncate ${isSelected ? 'text-primary-200' : 'text-slate-400'}`}>
-                    {u.rol ?? 'Sin rol'} · @{u.usernameUsuario}
+                    {formatRoleName(u.rol)} · @{u.usernameUsuario}
                   </p>
                 </div>
               </button>
