@@ -1,28 +1,15 @@
-import React from 'react';
+﻿import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useHomeDashboard } from '../hooks/useHomeDashboard';
 import { formatHora } from '../utils/cita.utils';
 import StatusBadge from '../components/ui/StatusBadge';
 import AvatarBadge from '../components/ui/AvatarBadge';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+import { getUserRole } from '../services/auth.service';
+import { ROLES, normalizeRole, formatRoleName, getRoleGreeting } from '../constants/roles.constants';
 
 /**
- * =============================================================================
  * COMPONENTE AUXILIAR: StatCard
- * =============================================================================
- * 
- * Propósito:
- *   Renderiza una tarjeta métrica individual con conteo numérico destacado,
- *   etiqueta descriptiva e ícono temático con esquema de color personalizable.
- * 
- * Parámetros y Retornos:
- *   @param {Object} props - Propiedades del componente.
- *   @param {number|string} props.value - Valor cuantitativo a mostrar.
- *   @param {string} props.label - Título descriptivo de la métrica.
- *   @param {string} props.color - Clase de color de Tailwind para el texto e icono.
- *   @param {string} props.bgClass - Clase de fondo para el contenedor del icono.
- *   @param {string} props.icon - Nombre de la clase del icono de Bootstrap Icons.
- *   @returns {JSX.Element} Tarjeta métrica estilizada.
  */
 const StatCard = ({ value, label, color, bgClass, icon }) => (
   <div className="flex items-center gap-3.5 p-4 bg-white rounded-2xl border border-slate-100 shadow-card hover:shadow-card-md transition-all">
@@ -41,23 +28,7 @@ const StatCard = ({ value, label, color, bgClass, icon }) => (
 );
 
 /**
- * =============================================================================
  * COMPONENTE AUXILIAR: QuickAction
- * =============================================================================
- * 
- * Propósito:
- *   Botón interactivo de navegación rápida hacia los flujos centrales de la clínica
- *   (nuevo paciente, agendar cita, atender consultas y administración de usuarios).
- * 
- * Parámetros y Retornos:
- *   @param {Object} props - Propiedades del componente.
- *   @param {string} props.icon - Clase de Bootstrap Icons.
- *   @param {string} props.title - Título principal de la acción.
- *   @param {string} props.desc - Breve descripción del destino.
- *   @param {Function} props.onClick - Manejador de clic para enrutar o disparar acción.
- *   @param {string} props.colorClass - Clase Tailwind para el fondo del ícono.
- *   @param {string} props.borderHover - Clase Tailwind aplicada al estado hover del borde.
- *   @returns {JSX.Element} Botón de acceso directo con animación y microinteracción.
  */
 const QuickAction = ({ icon, title, desc, onClick, colorClass, borderHover }) => (
   <button
@@ -84,43 +55,19 @@ const QuickAction = ({ icon, title, desc, onClick, colorClass, borderHover }) =>
 );
 
 /**
- * =============================================================================
  * VISTA: DashboardPage
- * =============================================================================
- * 
- * Propósito:
- *   Panel de control y bienvenida principal del sistema DentalCare.
- *   Ofrece una visión general de la actividad de la clínica en la fecha actual:
- *   - Saludo contextual con el nombre del usuario autenticado y la fecha formateada.
- *   - Accesos directos a los módulos con mayor frecuencia de uso.
- *   - Listado en tiempo real de las citas programadas para el día de hoy, con hora,
- *     paciente, especialidad y estado visual.
- *   - Tarjetas métricas de síntesis con el desglose estadístico diario (citas totales,
- *     completadas, pendientes de atención y reprogramadas).
- * 
- * Ubicación y Rol:
- *   src/views/DashboardPage.jsx
- *   Capa de Vistas / Páginas (Ruta protegida: /dashboard).
- * 
- * Trazabilidad (Referencias):
- *   - Invocado desde:
- *     * src/App.jsx (Definido como elemento protegido dentro de Layout en /dashboard).
- *   - Consume:
- *     * react-router-dom (useNavigate para la navegación interna entre rutas).
- *     * src/hooks/useHomeDashboard.js (useHomeDashboard para la ingesta reactiva de datos).
- *     * src/utils/cita.utils.js (formatHora para la representación amigable de horarios).
- *     * src/components/ui/StatusBadge.jsx (Badge cromático de estado de cita).
- *     * src/components/ui/AvatarBadge.jsx (Inicial del paciente).
- *     * src/components/ui/LoadingSpinner.jsx (Indicador de carga durante consultas).
- * 
- * Parámetros y Retornos:
- *   @returns {JSX.Element} Vista del dashboard ejecutivo con tarjetas y métricas.
- * =============================================================================
+ * Panel de control principal con filtrado y adaptación reactiva por rol (RBAC).
  */
 const DashboardPage = () => {
   const navigate = useNavigate();
-  // Consume el estado global del panel mediante el hook especializado
   const { citasHoy, loading, userName, today, stats } = useHomeDashboard();
+
+  // Control de acceso y adaptación contextual por rol
+  const rawRole = useMemo(() => getUserRole() || '', []);
+  const userRole = useMemo(() => normalizeRole(rawRole), [rawRole]);
+  const roleGreeting = useMemo(() => getRoleGreeting(rawRole), [rawRole]);
+  const roleFormatted = useMemo(() => formatRoleName(rawRole), [rawRole]);
+  const isAsistente = userRole === ROLES.ASISTENTEODONTOLOGO;
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-7 animate-fade-in">
@@ -132,68 +79,98 @@ const DashboardPage = () => {
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-semibold text-dental-200 mb-3 backdrop-blur-md">
             <i className="bi bi-activity text-dental-300" />
-            Panel Clínico en Vivo
+            Panel Clínico · {roleFormatted}
           </div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight font-display">
-            ¡Hola, {userName || 'Doctor(a)'}! 👋
+            ¡Hola,  {userName || roleGreeting}!
           </h2>
           <p className="text-primary-100 text-xs md:text-sm mt-1 capitalize">
-            Resumen de actividad para hoy, {today}.
+            {isAsistente
+              ? 'Panel de control de inventario y suministros clínicos.'
+              : `Resumen de actividad para hoy`}
           </p>
-        </div>
-
-        <div className="relative z-10 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/consulta')}
-            className="px-4 py-2.5 rounded-xl bg-white text-primary-800 text-xs font-bold
-                       shadow-sm hover:bg-primary-50 transition-all active:scale-95 flex items-center gap-2"
-          >
-            <i className="bi bi-play-circle-fill text-dental-600 text-sm" />
-            Atender Consultas
-          </button>
         </div>
       </div>
 
-      {/* Accesos rápidos */}
+      {/* Accesos rápidos según rol (RBAC) */}
       <div>
         <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3.5 px-1">
           Acciones Frecuentes
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <QuickAction
-            icon="bi-person-plus-fill"
-            title="Nuevo Paciente"
-            desc="Crear expediente clínico"
-            colorClass="bg-primary-600"
-            borderHover="hover:border-primary-300"
-            onClick={() => navigate('/pacientes')}
-          />
-          <QuickAction
-            icon="bi-calendar-plus-fill"
-            title="Agendar Cita"
-            desc="Programar nueva atención"
-            colorClass="bg-dental-600"
-            borderHover="hover:border-dental-300"
-            onClick={() => navigate('/agenda')}
-          />
-          <QuickAction
-            icon="bi-heart-pulse-fill"
-            title="Consultas de Hoy"
-            desc="Atención y odontograma"
-            colorClass="bg-blue-600"
-            borderHover="hover:border-blue-300"
-            onClick={() => navigate('/consulta')}
-          />
-          <QuickAction
-            icon="bi-people-fill"
-            title="Gestión de Personal"
-            desc="Administrar usuarios del sistema"
-            colorClass="bg-slate-700"
-            borderHover="hover:border-slate-400"
-            onClick={() => navigate('/usuarios')}
-          />
-        </div>
+
+        {isAsistente ? (
+          /* Acciones exclusivas para Asistente Dental (Sprint 4) */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <QuickAction
+              icon="bi-box-seam-fill"
+              title="Catálogo Materiales"
+              desc="Registrar insumos clínicos (MT)"
+              colorClass="bg-primary-600"
+              borderHover="hover:border-primary-300"
+              onClick={() => navigate('/inventario')}
+            />
+            <QuickAction
+              icon="bi-capsule-pill"
+              title="Ingreso Medicamentos"
+              desc="Abastecimiento y lote (MD)"
+              colorClass="bg-dental-600"
+              borderHover="hover:border-dental-300"
+              onClick={() => navigate('/inventario')}
+            />
+            <QuickAction
+              icon="bi-card-checklist"
+              title="Supervisión de Stock"
+              desc="Consultar existencias clínicas"
+              colorClass="bg-blue-600"
+              borderHover="hover:border-blue-300"
+              onClick={() => navigate('/inventario')}
+            />
+            <QuickAction
+              icon="bi-clipboard-check-fill"
+              title="Confirmar Consumos"
+              desc="Trazabilidad y descuento mensual"
+              colorClass="bg-emerald-600"
+              borderHover="hover:border-emerald-300"
+              onClick={() => navigate('/inventario')}
+            />
+          </div>
+        ) : (
+          /* Acciones generales para Recepción, Doctores y Administración */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <QuickAction
+              icon="bi-person-plus-fill"
+              title="Nuevo Paciente"
+              desc="Crear expediente clínico"
+              colorClass="bg-primary-600"
+              borderHover="hover:border-primary-300"
+              onClick={() => navigate('/pacientes')}
+            />
+            <QuickAction
+              icon="bi-calendar-plus-fill"
+              title="Agendar Cita"
+              desc="Programar nueva atención"
+              colorClass="bg-dental-600"
+              borderHover="hover:border-dental-300"
+              onClick={() => navigate('/agenda')}
+            />
+            <QuickAction
+              icon="bi-heart-pulse-fill"
+              title="Consultas de Hoy"
+              desc="Atención y odontograma"
+              colorClass="bg-blue-600"
+              borderHover="hover:border-blue-300"
+              onClick={() => navigate('/consulta')}
+            />
+            <QuickAction
+              icon="bi-box-seam"
+              title="Inventario y Stock"
+              desc="Insumos y abastecimiento"
+              colorClass="bg-slate-700"
+              borderHover="hover:border-slate-400"
+              onClick={() => navigate('/inventario')}
+            />
+          </div>
+        )}
       </div>
 
       {/* Widgets principales */}

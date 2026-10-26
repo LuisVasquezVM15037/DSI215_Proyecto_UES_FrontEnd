@@ -124,7 +124,15 @@ const ActiveConsultationPage = () => {
           onAgregarDetalle={prescripcion.handleAgregarDetalle}
           onEliminarDetalle={prescripcion.handleEliminarDetalle}
           onGuardarPrescripcion={prescripcion.handleGuardarPrescripcion}
-          onFinalizar={() => consulta.handleFinalizarConsulta(() => setStep(4))}
+          onFinalizar={async () => {
+            if (prescripcion.detalles && prescripcion.detalles.length > 0) {
+              await prescripcion.handleGuardarPrescripcion(() => {
+                consulta.handleFinalizarConsulta(() => setStep(4));
+              });
+            } else {
+              consulta.handleFinalizarConsulta(() => setStep(4));
+            }
+          }}
           onVolver={() => setStep(2)}
         />
       )}
