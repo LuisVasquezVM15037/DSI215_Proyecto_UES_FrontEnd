@@ -9,9 +9,6 @@ import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
 import { formatFechaHeader, normalizarFecha, obtenerFechaLocalISO } from '../utils/cita.utils';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import SearchInput from '../components/ui/SearchInput';
-import CitaProximaAlertBanner from '../components/CitaProximaAlertBanner';
-import ModalConfigAlertaCita from '../components/ModalConfigAlertaCita';
-import ListaEsperaPanel from '../components/ListaEsperaPanel';
 
 
 // Configuración de cuántas semanas mostrar en la vista "Semana"
@@ -68,8 +65,7 @@ const AppointmentPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date()); // fecha seleccionada para mostrar en el calendario y resumen
   const [showForm, setShowForm] = useState(false); // controla si se muestra el formulario de nueva/editar cita
   const [reprogramCita, setReprogramCita] = useState(null); // cita que se está reprogramando (para pasar al modal)
-  const [activeTab, setActiveTab] = useState('dia'); // 'dia' | 'semana' | 'espera'
-  const [configAlertasOpen, setConfigAlertasOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('dia'); // 'dia' | 'semana'
   const [viewDate, setViewDate] = useState(new Date()); // mes mostrado en el calendario
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -82,10 +78,6 @@ const AppointmentPage = () => {
   useEffect(() => {
     const pacienteId = searchParams.get('pacienteId');
     const autoNueva = searchParams.get('nuevaCita');
-    const tabParam = searchParams.get('tab');
-    if (tabParam === 'espera') {
-      setActiveTab('espera');
-    }
     if (pacienteId || autoNueva) {
       agenda.prepararNuevaCita(pacienteId);
       setShowForm(true);
@@ -302,39 +294,20 @@ const AppointmentPage = () => {
 
           {/* Tabs de vista */}
           <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-            {/* Tabs de vista y Configuración de Alertas (Sprint 5) */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-              {[
-                ['dia', 'bi-list-ul', 'Día'],
-                ['semana', 'bi-grid', 'Semana'],
-                ['espera', 'bi-person-lines-fill', 'Lista de Espera'],
-              ].map(([tab, icon, label]) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                              transition-all ${activeTab === tab
-                      ? 'bg-white text-slate-800 shadow-sm font-bold'
-                      : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  <i className={`bi ${icon}`} />{label}
-                </button>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setConfigAlertasOpen(true)}
-              title="Configurar recordatorios automáticos de citas próximas"
-              className="p-2 text-slate-500 hover:text-primary-700 hover:bg-primary-50 rounded-xl border border-slate-200 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
-            >
-              <i className="bi bi-sliders text-sm text-primary-600" />
-              <span className="hidden xl:inline">Alertas</span>
-            </button>
+            {[['dia', 'bi-list-ul', 'Día'], ['semana', 'bi-grid', 'Semana']].map(([tab, icon, label]) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                            transition-all ${activeTab === tab
+                    ? 'bg-white text-slate-800 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <i className={`bi ${icon}`} />{label}
+              </button>
+            ))}
           </div>
-        </div>
         </div>
 
         {/* Contenido */}
@@ -376,18 +349,6 @@ const AppointmentPage = () => {
               </div>
           )}
 
-          {!agenda.loading && !showForm && activeTab === 'espera' && (
-            <ListaEsperaPanel
-              pacientes={agenda.pacientes}
-              odontologos={agenda.odontologos}
-              onAgendarPaciente={(item) => {
-                agenda.prepararNuevaCita(item.pacienteId);
-                setActiveTab('dia');
-                setShowForm(true);
-              }}
-            />
-          )}
-
           {!agenda.loading && !showForm && activeTab === 'semana' && (
             <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
               {weekDays.map(day => {
@@ -425,12 +386,6 @@ const AppointmentPage = () => {
         loading={agenda.loading}
         onConfirmar={(data) => agenda.handleReprogramar(reprogramCita?.idCitas, data, () => setReprogramCita(null))}
         onCerrar={() => setReprogramCita(null)}
-      />
-
-      {/* Modal de configuración de alertas de citas (Sprint 5) */}
-      <ModalConfigAlertaCita
-        isOpen={configAlertasOpen}
-        onClose={() => setConfigAlertasOpen(false)}
       />
     </div>
   );

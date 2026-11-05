@@ -40,9 +40,6 @@ const CambiarPasswordObligatorioPage = lazy(() => import('./views/CambiarPasswor
 const ResetPasswordTokenPage = lazy(() => import('./views/ResetPasswordTokenPage'));
 const MantenimientoRespaldosPage = lazy(() => import('./views/MantenimientoRespaldosPage'));
 
-// Vistas Sprint 5: Centro de Notificaciones
-const NotificacionesPage = lazy(() => import('./views/NotificacionesPage'));
-
 // Componentes auxiliares ─────────────────────────────────────────────────
 
 /**
@@ -176,9 +173,6 @@ export default function App() {
                 </RoleRoute>
               }
             />
-
-            {/* Centro de Notificaciones y Eventos (DENTALCARE-71 / Sprint 5) */}
-            <Route path="/notificaciones" element={<NotificacionesPage />} />
 
             {/* Catch-all dentro del layout: cualquier ruta no definida → 404 */}
             <Route path="*" element={<NotFound />} />
