@@ -15,6 +15,7 @@ import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { getUserName, getUserRole, clearSession } from '../services/auth.service';
 import { confirmDialog } from '../utils/alert.utils';
 import { ROLES, normalizeRole, hasRoleAccess, formatRoleName } from '../constants/roles.constants';
+import NotificationBell from './NotificationBell';
 
 // Configuración de elementos del menú lateral con control de acceso basado en roles (RBAC)
 const NAV_ITEMS = [
@@ -216,16 +217,8 @@ const Layout = () => {
           {/* Acciones del encabezado */}
           <div className="flex items-center gap-3">
 
-            {/* Campana de notificaciones */}
-            <button
-              type="button"
-              aria-label="Notificaciones"
-              className="relative w-9 h-9 rounded-xl text-slate-400 hover:bg-slate-100
-                         hover:text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
-            >
-              <i className="bi bi-bell text-sm" />
-              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary-500 ring-2 ring-white" />
-            </button>
+            {/* Campana de notificaciones reactiva (Sprint 5) */}
+            <NotificationBell />
 
             <div className="h-6 w-px bg-slate-200" />
 
