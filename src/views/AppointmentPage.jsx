@@ -11,7 +11,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import SearchInput from '../components/ui/SearchInput';
 import CitaProximaAlertBanner from '../components/CitaProximaAlertBanner';
 import ModalConfigAlertaCita from '../components/ModalConfigAlertaCita';
-import ListaEsperaPanel from '../components/ListaEsperaPanel';
+import RecordatoriosCitasPanel from '../components/RecordatoriosCitasPanel';
 
 
 // Configuración de cuántas semanas mostrar en la vista "Semana"
@@ -83,8 +83,8 @@ const AppointmentPage = () => {
     const pacienteId = searchParams.get('pacienteId');
     const autoNueva = searchParams.get('nuevaCita');
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'espera') {
-      setActiveTab('espera');
+    if (tabParam === 'espera' || tabParam === 'recordatorios') {
+      setActiveTab('recordatorios');
     }
     if (pacienteId || autoNueva) {
       agenda.prepararNuevaCita(pacienteId);
@@ -228,6 +228,8 @@ const AppointmentPage = () => {
 
       {/* ── ÁREA PRINCIPAL ───────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Banner de Recordatorios de Citas Próximas (Sprint 5) */}
+        <CitaProximaAlertBanner onVerRecordatorios={() => setActiveTab('recordatorios')} />
 
         {/* Header del área */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0 gap-4">
@@ -308,7 +310,7 @@ const AppointmentPage = () => {
               {[
                 ['dia', 'bi-list-ul', 'Día'],
                 ['semana', 'bi-grid', 'Semana'],
-                ['espera', 'bi-person-lines-fill', 'Lista de Espera'],
+                ['recordatorios', 'bi-whatsapp', 'Recordatorios (Mañana)'],
               ].map(([tab, icon, label]) => (
                 <button
                   key={tab}
@@ -376,16 +378,8 @@ const AppointmentPage = () => {
               </div>
           )}
 
-          {!agenda.loading && !showForm && activeTab === 'espera' && (
-            <ListaEsperaPanel
-              pacientes={agenda.pacientes}
-              odontologos={agenda.odontologos}
-              onAgendarPaciente={(item) => {
-                agenda.prepararNuevaCita(item.pacienteId);
-                setActiveTab('dia');
-                setShowForm(true);
-              }}
-            />
+          {!agenda.loading && !showForm && (activeTab === 'recordatorios' || activeTab === 'espera') && (
+            <RecordatoriosCitasPanel />
           )}
 
           {!agenda.loading && !showForm && activeTab === 'semana' && (
