@@ -83,10 +83,6 @@ export const useInventario = () => {
     loadConsumos(mesSeleccionado);
   }, [loadConsumos, mesSeleccionado]);
 
-  useEffect(() => {
-    loadCatalogos();
-  }, [loadCatalogos]);
-
   // ── Operaciones de Materiales (DENTALCARE-26) ──────────────────────────────
 
   const registrarMaterial = async (data) => {

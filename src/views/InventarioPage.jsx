@@ -17,7 +17,6 @@ export const InventarioPage = () => {
     setTipoFilter,
     materiales,
     medicamentos,
-    loadCatalogos,
     consumos,
     loadingConsumos,
     mesSeleccionado,
@@ -188,7 +187,6 @@ export const InventarioPage = () => {
             setMesSeleccionado={setMesSeleccionado}
             materiales={materiales}
             medicamentos={medicamentos}
-            loadCatalogos={loadCatalogos}
             onModificarConsumo={modificarConsumo}
             onConfirmarConsumo={confirmarConsumo}
             onRegistrarConsumo={registrarConsumo}

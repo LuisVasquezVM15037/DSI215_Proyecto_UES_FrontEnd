@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import LoadingSpinner from '../ui/LoadingSpinner';
@@ -8,9 +8,8 @@ export const ConsumosMensuales = ({
   loading,
   mesSeleccionado,
   setMesSeleccionado,
-  materiales = [],
-  medicamentos = [],
-  loadCatalogos,
+  materiales,
+  medicamentos,
   onModificarConsumo,
   onConfirmarConsumo,
   onRegistrarConsumo,
@@ -71,24 +70,12 @@ export const ConsumosMensuales = ({
 
   // ── Nuevo Consumo ─────────────────────────────────────────────────────────
   const handleOpenNew = () => {
-    if (loadCatalogos) {
-      loadCatalogos();
-    }
     setNewTipo('MATERIAL');
-    setNewItemId(materiales[0]?.id ? String(materiales[0].id) : '');
+    setNewItemId(materiales[0]?.id || '');
     setNewCantidad(1);
     setNewNotas('');
     setModalNewOpen(true);
   };
-
-  useEffect(() => {
-    if (modalNewOpen) {
-      const list = newTipo === 'MATERIAL' ? materiales : medicamentos;
-      if (!newItemId || !list.some((item) => String(item.id) === String(newItemId))) {
-        setNewItemId(list[0]?.id ? String(list[0].id) : '');
-      }
-    }
-  }, [modalNewOpen, newTipo, materiales, medicamentos]);
 
   const handleSaveNew = async (e) => {
     e.preventDefault();
@@ -413,7 +400,7 @@ export const ConsumosMensuales = ({
                 type="button"
                 onClick={() => {
                   setNewTipo('MATERIAL');
-                  setNewItemId(materiales[0]?.id ? String(materiales[0].id) : '');
+                  setNewItemId(materiales[0]?.id || '');
                 }}
                 className={`py-2 text-xs font-semibold rounded-xl border transition-all ${
                   newTipo === 'MATERIAL'
@@ -427,7 +414,7 @@ export const ConsumosMensuales = ({
                 type="button"
                 onClick={() => {
                   setNewTipo('MEDICAMENTO');
-                  setNewItemId(medicamentos[0]?.id ? String(medicamentos[0].id) : '');
+                  setNewItemId(medicamentos[0]?.id || '');
                 }}
                 className={`py-2 text-xs font-semibold rounded-xl border transition-all ${
                   newTipo === 'MEDICAMENTO'
