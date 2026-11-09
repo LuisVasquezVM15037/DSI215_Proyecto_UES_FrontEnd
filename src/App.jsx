@@ -189,6 +189,9 @@ export default function App() {
                 </RoleRoute>
               }
             />
+            {/* Inteligencia de Negocios, Reportes y Rendimiento (DENTALCARE-70, 72, 74, 95 / Sprint 5) */}
+            <Route
+              path="/gerencia/reportes"
 
             {/* Catch-all dentro del layout: cualquier ruta no definida → 404 */}
             <Route path="*" element={<NotFound />} />

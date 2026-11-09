@@ -27,48 +27,56 @@ const NAV_ITEMS = [
   {
     path:  '/agenda',
     icon:  'bi-calendar-check',
+    path: '/agenda',
+    icon: 'bi-calendar-check',
     label: 'Agenda',
     allowedRoles: [ROLES.ADMIN, ROLES.RECEPCIONISTA, ROLES.GERENTE],
   },
   {
-    path:  '/pacientes',
-    icon:  'bi-people',
+    path: '/pacientes',
+    icon: 'bi-people',
     label: 'Pacientes',
     allowedRoles: [ROLES.ADMIN, ROLES.RECEPCIONISTA, ROLES.GERENTE],
   },
   {
-    path:  '/consulta',
-    icon:  'bi-heart-pulse',
+    path: '/consulta',
+    icon: 'bi-heart-pulse',
     label: 'Consultas',
     allowedRoles: [ROLES.ADMIN, ROLES.ODONTOLOGO],
   },
   {
-    path:  '/usuarios',
-    icon:  'bi-person-badge',
+    path: '/usuarios',
+    icon: 'bi-person-badge',
     label: 'Usuarios',
     allowedRoles: [ROLES.ADMIN],
   },
   {
-    path:  '/inventario',
-    icon:  'bi-box-seam',
+    path: '/inventario',
+    icon: 'bi-box-seam',
     label: 'Inventario',
     allowedRoles: [ROLES.ADMIN, ROLES.ASISTENTEODONTOLOGO, ROLES.GERENTE],
   },
   {
-    path:  '/gerencia/stock-critico',
-    icon:  'bi-shield-exclamation',
+    path: '/gerencia/stock-critico',
+    icon: 'bi-shield-exclamation',
     label: 'Stock Crítico (Auditoría)',
     allowedRoles: [ROLES.ADMIN, ROLES.GERENTE],
   },
   {
-    path:  '/revisar-accesos',
-    icon:  'bi-shield-check',
+    path: '/gerencia/reportes',
+    icon: 'bi-graph-up-arrow',
+    label: 'Reportes y BI',
+    allowedRoles: [ROLES.ADMIN, ROLES.GERENTE],
+  },
+  {
+    path: '/revisar-accesos',
+    icon: 'bi-shield-check',
     label: 'Revisar Accesos',
     allowedRoles: [ROLES.ADMIN],
   },
   {
-    path:  '/mantenimiento/respaldos',
-    icon:  'bi-database-gear',
+    path: '/mantenimiento/respaldos',
+    icon: 'bi-database-gear',
     label: 'Respaldos y BD',
     allowedRoles: [ROLES.ADMIN],
   },
@@ -200,7 +208,7 @@ const Layout = () => {
         {/* HEADER SUPERIOR */}
         <header className="h-16 bg-white border-b border-slate-200/80 flex items-center
                            justify-between px-6 flex-shrink-0 z-10">
-          
+
           {/* Título y badge clínico */}
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">

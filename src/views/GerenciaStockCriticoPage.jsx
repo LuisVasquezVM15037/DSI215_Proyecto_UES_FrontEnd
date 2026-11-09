@@ -3,6 +3,7 @@ import { stockAlertaService } from '../services/stockAlerta.service';
 import { alertError, alertSuccess, toastSuccess } from '../utils/alert.utils';
 
 export default function GerenciaStockCriticoPage() {
+  const navigate = useNavigate();
   const [alertas, setAlertas] = useState([]);
   const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -279,6 +280,12 @@ export default function GerenciaStockCriticoPage() {
       </div>
 
       {/* ===================================================================== */}
+      {/* WIDGET TOP 3 INSUMOS MÁS CRÍTICOS (SUPERVISIÓN GERENCIAL)             */}
+      {/* ===================================================================== */}
+      {resumen?.top3 && resumen.top3.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+      {/* ===================================================================== */}
       {/* CONSOLA DE AUDITORÍA: FILTROS & TABLA SOLO LECTURA                    */}
       {/* ===================================================================== */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
@@ -306,8 +313,10 @@ export default function GerenciaStockCriticoPage() {
                   className={`px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-colors ${
                     tipoFiltro === t
                       ? 'bg-slate-900 text-white'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-colors ${tipoFiltro === t
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   {t === 'TODOS' ? 'Todos' : t === 'MATERIAL' ? 'Materiales' : 'Medicamentos'}
                 </button>
@@ -339,147 +348,141 @@ export default function GerenciaStockCriticoPage() {
               <p className="text-xs">Cargando datos de auditoría de inventario...</p>
             </div>
           ) : alertasFiltradas.length === 0 ? (
-            <div className="py-16 text-center text-slate-500">
-              <i className="bi bi-shield-check text-4xl text-emerald-500 block mb-2"></i>
-              <p className="font-bold text-sm text-slate-700">No se registran insumos en stock crítico</p>
               <p className="text-xs text-slate-400 mt-0.5">
                 Los niveles de inventario cumplen con los umbrales de seguridad establecidos.
               </p>
             </div>
           ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
-                  <th className="py-3 px-4">Código</th>
-                  <th className="py-3 px-4">Nombre del Insumo Clínico</th>
-                  <th className="py-3 px-3">Tipo</th>
-                  <th className="py-3 px-3 text-center">Stock Actual</th>
-                  <th className="py-3 px-3 text-center">Stock Mínimo</th>
-                  <th className="py-3 px-3 text-center">Déficit</th>
-                  <th className="py-3 px-3">Porcentaje Cobertura</th>
-                  <th className="py-3 px-3 text-center">Urgencia</th>
-                  <th className="py-3 px-3 text-center">Días Proyectados</th>
-                  <th className="py-3 px-4 text-center">Estado Auditoría</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {alertasFiltradas.map((a) => {
-                  const cobertura = a.porcentajeCobertura || 0;
-                  const isCritico = a.stockActual <= 0 || a.nivelUrgencia === 'CRITICO';
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                    <th className="py-3 px-4">Código</th>
+                    <th className="py-3 px-4">Nombre del Insumo Clínico</th>
+                    <th className="py-3 px-3">Tipo</th>
+                    <th className="py-3 px-3 text-center">Stock Actual</th>
+                    <th className="py-3 px-3 text-center">Stock Mínimo</th>
+                    <th className="py-3 px-3 text-center">Déficit</th>
+                    <th className="py-3 px-3">Porcentaje Cobertura</th>
+                    <th className="py-3 px-3 text-center">Urgencia</th>
+                    <th className="py-3 px-3 text-center">Días Proyectados</th>
+                    <th className="py-3 px-4 text-center">Estado Auditoría</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {alertasFiltradas.map((a) => {
+                    const cobertura = a.porcentajeCobertura || 0;
+                    const isCritico = a.stockActual <= 0 || a.nivelUrgencia === 'CRITICO';
 
-                  return (
-                    <tr
-                      key={`${a.tipo}-${a.id}`}
-                      className="hover:bg-slate-50/60 transition-colors"
-                    >
-                      {/* Código */}
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700 text-xs">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
-                          {a.codigo}
-                        </span>
-                      </td>
+                    return (
+                      <tr
+                        key={`${a.tipo}-${a.id}`}
+                        className="hover:bg-slate-50/60 transition-colors"
+                      >
+                        {/* Código */}
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-700 text-xs">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200">
+                            {a.codigo}
+                          </span>
+                        </td>
 
-                      {/* Nombre */}
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-800 text-xs">
-                          {a.nombre}
-                        </div>
-                        <div className="text-[11px] text-slate-400">
-                          {a.unidadMedida || 'Unidad estándar'} {a.lote ? `• Lote: ${a.lote}` : ''}
-                        </div>
-                      </td>
+                        {/* Nombre */}
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-800 text-xs">
+                            {a.nombre}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {a.unidadMedida || 'Unidad estándar'} {a.lote ? `• Lote: ${a.lote}` : ''}
+                          </div>
+                        </td>
 
-                      {/* Tipo */}
-                      <td className="py-3.5 px-3">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${
-                            a.tipo === 'MATERIAL'
+                        {/* Tipo */}
+                        <td className="py-3.5 px-3">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${a.tipo === 'MATERIAL'
                               ? 'bg-primary-50 text-primary-700'
                               : 'bg-teal-50 text-teal-700'
-                          }`}
-                        >
-                          <i
-                            className={
-                              a.tipo === 'MATERIAL' ? 'bi bi-tools' : 'bi bi-capsule'
-                            }
-                          ></i>
-                          {a.tipo}
-                        </span>
-                      </td>
+                              }`}
+                          >
+                            <i
+                              className={
+                                a.tipo === 'MATERIAL' ? 'bi bi-tools' : 'bi bi-capsule'
+                              }
+                            ></i>
+                            {a.tipo}
+                          </span>
+                        </td>
 
-                      {/* Stock Actual */}
-                      <td className="py-3.5 px-3 text-center">
-                        <span
-                          className={`font-black text-xs px-2 py-0.5 rounded ${
-                            a.stockActual <= 0
+                        {/* Stock Actual */}
+                        <td className="py-3.5 px-3 text-center">
+                          <span
+                            className={`font-black text-xs px-2 py-0.5 rounded ${a.stockActual <= 0
                               ? 'bg-rose-100 text-rose-700 font-bold'
                               : 'text-slate-900'
-                          }`}
-                        >
-                          {a.stockActual}
-                        </span>
-                      </td>
-
-                      {/* Stock Mínimo */}
-                      <td className="py-3.5 px-3 text-center text-slate-600 font-medium">
-                        {a.stockMinimo}
-                      </td>
-
-                      {/* Déficit */}
-                      <td className="py-3.5 px-3 text-center">
-                        <span className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded">
-                          -{a.deficit}
-                        </span>
-                      </td>
-
-                      {/* Cobertura */}
-                      <td className="py-3.5 px-3">
-                        <div className="w-28 space-y-1">
-                          <div className="flex justify-between text-[10px] font-bold">
-                            <span className={isCritico ? 'text-rose-600' : 'text-amber-600'}>
-                              {cobertura.toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className={`h-1.5 rounded-full ${
-                                isCritico ? 'bg-rose-500' : 'bg-amber-500'
                               }`}
-                              style={{ width: `${Math.min(100, Math.max(5, cobertura))}%` }}
-                            ></div>
+                          >
+                            {a.stockActual}
+                          </span>
+                        </td>
+
+                        {/* Stock Mínimo */}
+                        <td className="py-3.5 px-3 text-center text-slate-600 font-medium">
+                          {a.stockMinimo}
+                        </td>
+
+                        {/* Déficit */}
+                        <td className="py-3.5 px-3 text-center">
+                          <span className="font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded">
+                            -{a.deficit}
+                          </span>
+                        </td>
+
+                        {/* Cobertura */}
+                        <td className="py-3.5 px-3">
+                          <div className="w-28 space-y-1">
+                            <div className="flex justify-between text-[10px] font-bold">
+                              <span className={isCritico ? 'text-rose-600' : 'text-amber-600'}>
+                                {cobertura.toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className={`h-1.5 rounded-full ${isCritico ? 'bg-rose-500' : 'bg-amber-500'
+                                  }`}
+                                style={{ width: `${Math.min(100, Math.max(5, cobertura))}%` }}
+                              ></div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
 
-                      {/* Urgencia */}
-                      <td className="py-3.5 px-3 text-center">
-                        {getBadgeUrgencia(a.nivelUrgencia)}
-                      </td>
+                        {/* Urgencia */}
+                        <td className="py-3.5 px-3 text-center">
+                          {getBadgeUrgencia(a.nivelUrgencia)}
+                        </td>
 
-                      {/* Días Proyectados */}
-                      <td className="py-3.5 px-3 text-center font-medium text-slate-700">
-                        {a.diasEstimadosAgotamiento != null ? (
-                          <span>{a.diasEstimadosAgotamiento} días</span>
-                        ) : (
-                          <span className="text-slate-400">N/D</span>
-                        )}
-                      </td>
+                        {/* Días Proyectados */}
+                        <td className="py-3.5 px-3 text-center font-medium text-slate-700">
+                          {a.diasEstimadosAgotamiento != null ? (
+                            <span>{a.diasEstimadosAgotamiento} días</span>
+                          ) : (
+                            <span className="text-slate-400">N/D</span>
+                          )}
+                        </td>
 
-                      {/* Estado de Auditoría (Estricto solo lectura, sin botones de acción) */}
-                      <td className="py-3.5 px-4 text-center">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                          <i className="bi bi-eye text-slate-500"></i>
-                          Auditoría
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {/* Estado de Auditoría (Estricto solo lectura, sin botones de acción) */}
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            <i className="bi bi-eye text-slate-500"></i>
+                            Auditoría
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
           )}
-        </div>
+            </div>
       </div>
-    </div>
-  );
+      </div>
+      );
 }
