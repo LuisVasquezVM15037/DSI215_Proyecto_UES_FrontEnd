@@ -210,14 +210,15 @@ const AppointmentPage = () => {
           <h6 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
             Resumen del día
           </h6>
-          <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="grid grid-cols-2 gap-2 text-center">
             {[
               { label: 'Total', val: agenda.citasDelDia.length, color: 'text-primary-600' },
               { label: 'Pendientes', val: agenda.citasDelDia.filter(c => ['PROGRAMADA', 'PENDIENTE'].includes(c.estadoCita)).length, color: 'text-amber-500' },
               { label: 'Completadas', val: agenda.citasDelDia.filter(c => ['COMPLETADA', 'FINALIZADA'].includes(c.estadoCita)).length, color: 'text-emerald-600' },
-              { label: 'Canceladas', val: agenda.citasDelDia.filter(c => c.estadoCita === 'CANCELADA').length, color: 'text-red-500' },
-            ].map(({ label, val, color }) => (
-              <div key={label} className="bg-slate-50 rounded-xl p-2">
+              { label: 'No asistió', val: agenda.citasDelDia.filter(c => c.estadoCita === 'NO_ASISTIO').length, color: 'text-rose-600' },
+              { label: 'Canceladas', val: agenda.citasDelDia.filter(c => c.estadoCita === 'CANCELADA').length, color: 'text-red-500', colSpan: true },
+            ].map(({ label, val, color, colSpan }) => (
+              <div key={label} className={`bg-slate-50 rounded-xl p-2 ${colSpan ? 'col-span-2' : ''}`}>
                 <p className={`text-xl font-bold tabular-nums ${color}`}>{val}</p>
                 <p className="text-[10px] text-slate-500">{label}</p>
               </div>
