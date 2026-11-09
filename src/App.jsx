@@ -42,6 +42,7 @@ const MantenimientoRespaldosPage = lazy(() => import('./views/MantenimientoRespa
 
 // Vistas Sprint 5: Centro de Notificaciones
 const NotificacionesPage = lazy(() => import('./views/NotificacionesPage'));
+const GerenciaStockCriticoPage = lazy(() => import('./views/GerenciaStockCriticoPage'));
 
 // Componentes auxiliares ─────────────────────────────────────────────────
 
@@ -179,6 +180,15 @@ export default function App() {
 
             {/* Centro de Notificaciones y Eventos (DENTALCARE-71 / Sprint 5) */}
             <Route path="/notificaciones" element={<NotificacionesPage />} />
+            {/* Auditoría Gerencial de Stock Crítico (DENTALCARE-73 / Sprint 5) - Solo Lectura */}
+            <Route
+              path="/gerencia/stock-critico"
+              element={
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.GERENTE]}>
+                  <GerenciaStockCriticoPage />
+                </RoleRoute>
+              }
+            />
 
             {/* Catch-all dentro del layout: cualquier ruta no definida → 404 */}
             <Route path="*" element={<NotFound />} />

@@ -4,9 +4,17 @@ import InventarioTable from '../components/inventario/InventarioTable';
 import MaterialForm from '../components/inventario/MaterialForm';
 import MedicamentoIngresoForm from '../components/inventario/MedicamentoIngresoForm';
 import ConsumosMensuales from '../components/inventario/ConsumosMensuales';
+import { AlertasStockOperativas } from '../components/inventario/AlertasStockOperativas';
 
 export const InventarioPage = () => {
-  const [activeTab, setActiveTab] = useState('items'); // 'items' | 'registrar-material' | 'ingresar-medicamento' | 'consumos'
+  const getInitialTab = () => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('tab');
+      if (['items', 'registrar-material', 'ingresar-medicamento', 'consumos', 'alertas'].includes(p)) return p;
+    } catch (e) {}
+    return 'items';
+  };
+  const [activeTab, setActiveTab] = useState(getInitialTab);
 
   const {
     items,

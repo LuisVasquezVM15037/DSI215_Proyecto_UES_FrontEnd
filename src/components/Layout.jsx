@@ -55,6 +55,12 @@ const NAV_ITEMS = [
     allowedRoles: [ROLES.ADMIN, ROLES.ASISTENTEODONTOLOGO, ROLES.GERENTE],
   },
   {
+    path:  '/gerencia/stock-critico',
+    icon:  'bi-shield-exclamation',
+    label: 'Stock Crítico (Auditoría)',
+    allowedRoles: [ROLES.ADMIN, ROLES.GERENTE],
+  },
+  {
     path:  '/revisar-accesos',
     icon:  'bi-shield-check',
     label: 'Revisar Accesos',
