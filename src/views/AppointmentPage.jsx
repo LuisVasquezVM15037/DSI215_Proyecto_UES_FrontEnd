@@ -9,6 +9,9 @@ import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
 import { formatFechaHeader, normalizarFecha, obtenerFechaLocalISO } from '../utils/cita.utils';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import SearchInput from '../components/ui/SearchInput';
+import CitaProximaAlertBanner from '../components/CitaProximaAlertBanner';
+import ModalConfigAlertaCita from '../components/ModalConfigAlertaCita';
+import RecordatoriosCitasPanel from '../components/RecordatoriosCitasPanel';
 
 
 // Configuración de cuántas semanas mostrar en la vista "Semana"
@@ -65,7 +68,8 @@ const AppointmentPage = () => {
   const [selectedDate, setSelectedDate] = useState(new Date()); // fecha seleccionada para mostrar en el calendario y resumen
   const [showForm, setShowForm] = useState(false); // controla si se muestra el formulario de nueva/editar cita
   const [reprogramCita, setReprogramCita] = useState(null); // cita que se está reprogramando (para pasar al modal)
-  const [activeTab, setActiveTab] = useState('dia'); // 'dia' | 'semana'
+  const [activeTab, setActiveTab] = useState('dia'); // 'dia' | 'semana' | 'espera'
+  const [configAlertasOpen, setConfigAlertasOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date()); // mes mostrado en el calendario
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -78,6 +82,10 @@ const AppointmentPage = () => {
   useEffect(() => {
     const pacienteId = searchParams.get('pacienteId');
     const autoNueva = searchParams.get('nuevaCita');
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'espera' || tabParam === 'recordatorios') {
+      setActiveTab('recordatorios');
+    }
     if (pacienteId || autoNueva) {
       agenda.prepararNuevaCita(pacienteId);
       setShowForm(true);
@@ -202,14 +210,15 @@ const AppointmentPage = () => {
           <h6 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
             Resumen del día
           </h6>
-          <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="grid grid-cols-2 gap-2 text-center">
             {[
               { label: 'Total', val: agenda.citasDelDia.length, color: 'text-primary-600' },
               { label: 'Pendientes', val: agenda.citasDelDia.filter(c => ['PROGRAMADA', 'PENDIENTE'].includes(c.estadoCita)).length, color: 'text-amber-500' },
               { label: 'Completadas', val: agenda.citasDelDia.filter(c => ['COMPLETADA', 'FINALIZADA'].includes(c.estadoCita)).length, color: 'text-emerald-600' },
-              { label: 'Canceladas', val: agenda.citasDelDia.filter(c => c.estadoCita === 'CANCELADA').length, color: 'text-red-500' },
-            ].map(({ label, val, color }) => (
-              <div key={label} className="bg-slate-50 rounded-xl p-2">
+              { label: 'No asistió', val: agenda.citasDelDia.filter(c => c.estadoCita === 'NO_ASISTIO').length, color: 'text-rose-600' },
+              { label: 'Canceladas', val: agenda.citasDelDia.filter(c => c.estadoCita === 'CANCELADA').length, color: 'text-red-500', colSpan: true },
+            ].map(({ label, val, color, colSpan }) => (
+              <div key={label} className={`bg-slate-50 rounded-xl p-2 ${colSpan ? 'col-span-2' : ''}`}>
                 <p className={`text-xl font-bold tabular-nums ${color}`}>{val}</p>
                 <p className="text-[10px] text-slate-500">{label}</p>
               </div>
@@ -220,6 +229,8 @@ const AppointmentPage = () => {
 
       {/* ── ÁREA PRINCIPAL ───────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Banner de Recordatorios de Citas Próximas (Sprint 5) */}
+        <CitaProximaAlertBanner onVerRecordatorios={() => setActiveTab('recordatorios')} />
 
         {/* Header del área */}
         <div className="flex items-center justify-between mb-4 flex-shrink-0 gap-4">
@@ -294,20 +305,39 @@ const AppointmentPage = () => {
 
           {/* Tabs de vista */}
           <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-            {[['dia', 'bi-list-ul', 'Día'], ['semana', 'bi-grid', 'Semana']].map(([tab, icon, label]) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                            transition-all ${activeTab === tab
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'}`}
-              >
-                <i className={`bi ${icon}`} />{label}
-              </button>
-            ))}
+            {/* Tabs de vista y Configuración de Alertas (Sprint 5) */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+              {[
+                ['dia', 'bi-list-ul', 'Día'],
+                ['semana', 'bi-grid', 'Semana'],
+                ['recordatorios', 'bi-whatsapp', 'Recordatorios (Mañana)'],
+              ].map(([tab, icon, label]) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                              transition-all ${activeTab === tab
+                      ? 'bg-white text-slate-800 shadow-sm font-bold'
+                      : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  <i className={`bi ${icon}`} />{label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setConfigAlertasOpen(true)}
+              title="Configurar recordatorios automáticos de citas próximas"
+              className="p-2 text-slate-500 hover:text-primary-700 hover:bg-primary-50 rounded-xl border border-slate-200 transition-colors cursor-pointer flex items-center gap-1 text-xs font-semibold"
+            >
+              <i className="bi bi-sliders text-sm text-primary-600" />
+              <span className="hidden xl:inline">Alertas</span>
+            </button>
           </div>
+        </div>
         </div>
 
         {/* Contenido */}
@@ -349,6 +379,10 @@ const AppointmentPage = () => {
               </div>
           )}
 
+          {!agenda.loading && !showForm && (activeTab === 'recordatorios' || activeTab === 'espera') && (
+            <RecordatoriosCitasPanel />
+          )}
+
           {!agenda.loading && !showForm && activeTab === 'semana' && (
             <div className="grid grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
               {weekDays.map(day => {
@@ -386,6 +420,12 @@ const AppointmentPage = () => {
         loading={agenda.loading}
         onConfirmar={(data) => agenda.handleReprogramar(reprogramCita?.idCitas, data, () => setReprogramCita(null))}
         onCerrar={() => setReprogramCita(null)}
+      />
+
+      {/* Modal de configuración de alertas de citas (Sprint 5) */}
+      <ModalConfigAlertaCita
+        isOpen={configAlertasOpen}
+        onClose={() => setConfigAlertasOpen(false)}
       />
     </div>
   );

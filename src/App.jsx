@@ -40,6 +40,11 @@ const CambiarPasswordObligatorioPage = lazy(() => import('./views/CambiarPasswor
 const ResetPasswordTokenPage = lazy(() => import('./views/ResetPasswordTokenPage'));
 const MantenimientoRespaldosPage = lazy(() => import('./views/MantenimientoRespaldosPage'));
 
+// Vistas Sprint 5: Centro de Notificaciones
+const NotificacionesPage = lazy(() => import('./views/NotificacionesPage'));
+const GerenciaStockCriticoPage = lazy(() => import('./views/GerenciaStockCriticoPage'));
+const GerenciaReportesPage = lazy(() => import('./views/GerenciaReportesPage'));
+
 // Componentes auxiliares ─────────────────────────────────────────────────
 
 /**
@@ -170,6 +175,27 @@ export default function App() {
               element={
                 <RoleRoute roles={[ROLES.ADMIN]}>
                   <MantenimientoRespaldosPage />
+                </RoleRoute>
+              }
+            />
+
+            {/* Centro de Notificaciones y Eventos (DENTALCARE-71 / Sprint 5) */}
+            <Route path="/notificaciones" element={<NotificacionesPage />} />
+            {/* Auditoría Gerencial de Stock Crítico (DENTALCARE-73 / Sprint 5) - Solo Lectura */}
+            <Route
+              path="/gerencia/stock-critico"
+              element={
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.GERENTE]}>
+                  <GerenciaStockCriticoPage />
+                </RoleRoute>
+              }
+            />
+            {/* Inteligencia de Negocios, Reportes y Rendimiento (DENTALCARE-70, 72, 74, 95 / Sprint 5) */}
+            <Route
+              path="/gerencia/reportes"
+              element={
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.GERENTE]}>
+                  <GerenciaReportesPage />
                 </RoleRoute>
               }
             />

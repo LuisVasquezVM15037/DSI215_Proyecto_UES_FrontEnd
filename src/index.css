@@ -34,3 +34,26 @@
     text-wrap: balance;
   }
 }
+
+/* Estilos optimizados para impresión de reportes institucionales (DENTALCARE-74) */
+@media print {
+  aside, nav, header, button, .no-print {
+    display: none !important;
+  }
+  body, main {
+    background: white !important;
+    color: #111827 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  table {
+    page-break-inside: auto;
+  }
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+}
