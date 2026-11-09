@@ -43,6 +43,7 @@ const MantenimientoRespaldosPage = lazy(() => import('./views/MantenimientoRespa
 // Vistas Sprint 5: Centro de Notificaciones
 const NotificacionesPage = lazy(() => import('./views/NotificacionesPage'));
 const GerenciaStockCriticoPage = lazy(() => import('./views/GerenciaStockCriticoPage'));
+const GerenciaReportesPage = lazy(() => import('./views/GerenciaReportesPage'));
 
 // Componentes auxiliares ─────────────────────────────────────────────────
 
@@ -192,6 +193,12 @@ export default function App() {
             {/* Inteligencia de Negocios, Reportes y Rendimiento (DENTALCARE-70, 72, 74, 95 / Sprint 5) */}
             <Route
               path="/gerencia/reportes"
+              element={
+                <RoleRoute roles={[ROLES.ADMIN, ROLES.GERENTE]}>
+                  <GerenciaReportesPage />
+                </RoleRoute>
+              }
+            />
 
             {/* Catch-all dentro del layout: cualquier ruta no definida → 404 */}
             <Route path="*" element={<NotFound />} />

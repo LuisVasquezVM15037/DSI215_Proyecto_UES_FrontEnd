@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { stockAlertaService } from '../services/stockAlerta.service';
 import { alertError, alertSuccess, toastSuccess } from '../utils/alert.utils';
 
@@ -285,6 +286,95 @@ export default function GerenciaStockCriticoPage() {
       {resumen?.top3 && resumen.top3.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+              </span>
+              <h2 className="text-base font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                Top 3 Insumos en Riesgo Crítico de Agotamiento
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200">
+                  Prioridad de Supervisión
+                </span>
+              </h2>
+            </div>
+            <span className="text-xs text-slate-400 hidden sm:inline">
+              Insumos con menor porcentaje de cobertura respecto al stock mínimo
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {resumen.top3.map((item, index) => {
+              const cobertura = item.porcentajeCobertura || 0;
+              const isCritico = item.stockActual <= 0 || item.nivelUrgencia === 'CRITICO';
+
+              return (
+                <div
+                  key={`gerencia-top3-${item.tipo}-${item.id}`}
+                  className={`relative rounded-2xl p-5 border transition-all hover:shadow-md ${isCritico
+                    ? 'bg-gradient-to-br from-rose-50/90 via-white to-rose-50/40 border-rose-200'
+                    : 'bg-gradient-to-br from-amber-50/90 via-white to-amber-50/40 border-amber-200'
+                    }`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <span
+                      className={`text-[11px] font-black uppercase px-2 py-0.5 rounded-md tracking-wider ${index === 0
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : index === 1
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-amber-600 text-white'
+                        }`}
+                    >
+                      #{index + 1} Más Urgente
+                    </span>
+                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                      {item.codigo}
+                    </span>
+                  </div>
+
+                  <h3 className="font-bold text-slate-900 text-sm line-clamp-1 mb-1" title={item.nombre}>
+                    {item.nombre}
+                  </h3>
+                  <div className="text-xs text-slate-500 mb-3 flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-600">{item.tipo}</span>
+                    <span>•</span>
+                    <span>{item.unidadMedida || 'Unidad'}</span>
+                  </div>
+
+                  <div className="space-y-1.5 mb-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500 font-medium">Cobertura:</span>
+                      <span className={`font-bold ${isCritico ? 'text-rose-600' : 'text-amber-600'}`}>
+                        {cobertura.toFixed(1)}% ({item.stockActual} / {item.stockMinimo})
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className={`h-2 rounded-full transition-all duration-500 ${isCritico ? 'bg-rose-500' : 'bg-amber-500'
+                          }`}
+                        style={{ width: `${Math.min(100, Math.max(5, cobertura))}%` }}
+                      ></div>
+                    </div>
+                    <div className="flex justify-between text-[11px] text-slate-500 pt-1">
+                      <span>Déficit: <strong className="text-rose-600">-{item.deficit} uds</strong></span>
+                      <span>{item.diasEstimadosAgotamiento} días est.</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
+                    <span className="inline-flex items-center gap-1 font-semibold text-slate-700">
+                      <i className="bi bi-shield-lock"></i>
+                      Supervisión Gerencial
+                    </span>
+                    <span className="text-slate-400">Solo Lectura</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ===================================================================== */}
       {/* CONSOLA DE AUDITORÍA: FILTROS & TABLA SOLO LECTURA                    */}
       {/* ===================================================================== */}
@@ -310,9 +400,6 @@ export default function GerenciaStockCriticoPage() {
                 <button
                   key={t}
                   onClick={() => setTipoFiltro(t)}
-                  className={`px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-colors ${
-                    tipoFiltro === t
-                      ? 'bg-slate-900 text-white'
                   className={`px-3 py-1.5 rounded-lg font-semibold text-[11px] transition-colors ${tipoFiltro === t
                     ? 'bg-slate-900 text-white'
                     : 'text-slate-600 hover:text-slate-900'
@@ -348,9 +435,32 @@ export default function GerenciaStockCriticoPage() {
               <p className="text-xs">Cargando datos de auditoría de inventario...</p>
             </div>
           ) : alertasFiltradas.length === 0 ? (
-              <p className="text-xs text-slate-400 mt-0.5">
-                Los niveles de inventario cumplen con los umbrales de seguridad establecidos.
+            <div className="py-16 text-center text-slate-500 max-w-lg mx-auto p-6">
+              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 text-3xl shadow-xs">
+                <i className="bi bi-shield-check"></i>
+              </div>
+              <h3 className="font-extrabold text-base text-slate-800">
+                ¡Almacén en Estado Óptimo! (0 Insumos Críticos)
+              </h3>
+              <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                Actualmente todos los materiales y medicamentos de la clínica cuentan con existencias superiores a su stock mínimo de seguridad.
               </p>
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl text-left text-xs text-blue-800">
+                <p className="font-bold flex items-center gap-1.5 mb-1">
+                  <i className="bi bi-info-circle-fill"></i>
+                  ¿Cómo funciona esta pantalla? (Gestión por Excepción)
+                </p>
+                <p className="text-[11px] text-blue-700 leading-relaxed">
+                  Esta consola de auditoría no muestra el inventario general completo, sino que <strong>solo lista aquellos insumos cuando su stock actual cae al nivel mínimo o por debajo (stockActual ≤ stockMinimo)</strong>.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/inventario')}
+                className="mt-5 py-2.5 px-4 rounded-xl font-bold text-xs bg-slate-900 text-white hover:bg-slate-800 transition-colors inline-flex items-center gap-2 shadow-xs cursor-pointer"
+              >
+                <i className="bi bi-box-seam"></i>
+                <span>Ver Catálogo en Inventario General</span>
+              </button>
             </div>
           ) : (
               <table className="w-full text-left border-collapse text-xs">

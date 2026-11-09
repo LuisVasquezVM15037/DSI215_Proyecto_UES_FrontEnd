@@ -20,13 +20,11 @@ import NotificationBell from './NotificationBell';
 // Configuración de elementos del menú lateral con control de acceso basado en roles (RBAC)
 const NAV_ITEMS = [
   {
-    path:  '/dashboard',
-    icon:  'bi-grid-1x2',
+    path: '/dashboard',
+    icon: 'bi-grid-1x2',
     label: 'Inicio',
   },
   {
-    path:  '/agenda',
-    icon:  'bi-calendar-check',
     path: '/agenda',
     icon: 'bi-calendar-check',
     label: 'Agenda',
