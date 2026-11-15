@@ -20,6 +20,7 @@ const TratamientoSelector = ({
   onSelect,
   onCrear,
   crearLoading = false,
+  esGeneral = false,
 }) => {
   const [open,      setOpen]      = useState(false);
   const [busqueda,  setBusqueda]  = useState('');
@@ -29,6 +30,7 @@ const TratamientoSelector = ({
     nombreTratamiento:      '',
     descripcionTratamiento: '',
     costoTratamiento:       '',
+    esPorPieza:             !esGeneral,
   });
 
   const ref = useRef(null);
@@ -68,6 +70,7 @@ const TratamientoSelector = ({
         nombreTratamiento: nuevo.nombreTratamiento.trim(),
         descripcionTratamiento: nuevo.descripcionTratamiento?.trim() || nuevo.nombreTratamiento.trim(),
         costoTratamiento: parseFloat(nuevo.costoTratamiento),
+        esPorPieza: nuevo.esPorPieza !== undefined ? nuevo.esPorPieza : !esGeneral,
       });
       setNuevo({ nombreTratamiento: '', descripcionTratamiento: '', costoTratamiento: '' });
       setShowForm(false);
@@ -90,7 +93,7 @@ const TratamientoSelector = ({
                    focus:ring-primary-500 transition-colors"
       >
         <span className={seleccionado ? 'text-slate-800 font-medium' : 'text-slate-400'}>
-          {seleccionado ? seleccionado.nombreTratamiento : 'Seleccione un tratamiento...'}
+          {seleccionado ? seleccionado.nombreTratamiento : (esGeneral ? 'Seleccione procedimiento general (ej. Limpieza)...' : 'Seleccione tratamiento por pieza...')}
         </span>
         <i className={`bi bi-chevron-${open ? 'up' : 'down'} text-slate-400 text-xs flex-shrink-0`} />
       </button>
@@ -136,10 +139,16 @@ const TratamientoSelector = ({
                                 ? 'bg-primary-50 border-l-primary-500'
                                 : 'hover:bg-slate-50 border-l-transparent'}`}
                 >
-                  <p className={`text-sm font-semibold leading-tight
-                                 ${isSelected ? 'text-primary-700' : 'text-slate-700'}`}>
-                    {t.nombreTratamiento}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-sm font-semibold leading-tight ${isSelected ? 'text-primary-700' : 'text-slate-700'}`}>
+                      {t.nombreTratamiento}
+                    </p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase shrink-0 ${
+                      t.esPorPieza === false ? 'bg-teal-100 text-teal-800' : 'bg-primary-50 text-primary-700'
+                    }`}>
+                      {t.esPorPieza === false ? 'General' : 'Por Pieza'}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-400 mt-0.5">
                     {t.descripcionTratamiento} — <strong>${t.costoTratamiento}</strong>
                   </p>
@@ -191,6 +200,31 @@ const TratamientoSelector = ({
                              focus:border-transparent transition-all"
                 />
               ))}
+
+              {/* Selector de Ámbito para Nuevo Tratamiento */}
+              <div className="flex items-center justify-between p-2 bg-white rounded-lg border border-slate-200 text-xs">
+                <span className="font-semibold text-slate-700">Ámbito:</span>
+                <div className="flex gap-2">
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="nuevoEsPorPieza"
+                      checked={nuevo.esPorPieza === true}
+                      onChange={() => setNuevo(p => ({ ...p, esPorPieza: true }))}
+                    />
+                    <span className="text-primary-700 font-medium">Por pieza</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="nuevoEsPorPieza"
+                      checked={nuevo.esPorPieza === false}
+                      onChange={() => setNuevo(p => ({ ...p, esPorPieza: false }))}
+                    />
+                    <span className="text-teal-700 font-medium">General</span>
+                  </label>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={handleCrear}

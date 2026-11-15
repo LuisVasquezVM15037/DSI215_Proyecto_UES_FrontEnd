@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginService, saveSession } from '../services/auth.service';
 import Button from '../components/ui/Button';
+import ModalSolicitarRecuperacion from '../components/seguridad/ModalSolicitarRecuperacion';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 /**
@@ -16,6 +17,7 @@ const LoginPage = () => {
   const [showPwd,    setShowPwd]     = useState(false);
   const [error,      setError]       = useState('');
   const [loading,    setLoading]     = useState(false);
+  const [modalRecuperarOpen, setModalRecuperarOpen] = useState(false);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -180,7 +182,8 @@ const LoginPage = () => {
               </label>
               <button
                 type="button"
-                className="text-xs text-primary-600 hover:text-primary-800 transition-colors"
+                onClick={() => setModalRecuperarOpen(true)}
+                className="text-xs text-primary-600 hover:text-primary-800 transition-colors cursor-pointer font-medium"
               >
                 ¿Olvidaste tu contraseña?
               </button>
@@ -196,6 +199,7 @@ const LoginPage = () => {
           </p>
         </div>
       </div>
+      <ModalSolicitarRecuperacion isOpen={modalRecuperarOpen} onClose={() => setModalRecuperarOpen(false)} />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React from 'react';
 import Button from './ui/Button';
+import MedicamentoAutocomplete from './MedicamentoAutocomplete';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 const Label = ({ children }) => (
@@ -90,18 +91,12 @@ const StepPrescripcion = ({
               </h6>
 
               <div>
-                <Label>Medicamento *</Label>
-                <Select
-                  value={detalleActual.idMedicamento}
-                  onChange={e => handleDetalleChange('idMedicamento', e.target.value)}
-                >
-                  <option value="">Seleccione un medicamento...</option>
-                  {medicamentos.map(m => (
-                    <option key={m.idMedicamento} value={m.idMedicamento}>
-                      {m.nombreMedicamento} — {m.concentracion} ({m.componenteActivo})
-                    </option>
-                  ))}
-                </Select>
+                <Label>Medicamento (Buscador con Autocompletado) *</Label>
+                <MedicamentoAutocomplete
+                  medicamentos={medicamentos}
+                  selectedId={detalleActual.idMedicamento}
+                  onSelect={id => handleDetalleChange('idMedicamento', id)}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Propósito:
  * Componente estructural envolvente principal (Layout Shell) de la aplicación.
  * Provee la barra de navegación lateral fija (Sidebar) con filtrado reactivo de opciones
@@ -12,10 +12,13 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
-import { getUserName, getUserRole, clearSession } from '../services/auth.service';
+import { getUserName, getUserRole, getUserAvatar, getUserIdentifier, getToken, clearSession } from '../services/auth.service';
+import { resolverUrlArchivo } from '../services/archivo.service';
 import { confirmDialog } from '../utils/alert.utils';
 import { ROLES, normalizeRole, hasRoleAccess, formatRoleName } from '../constants/roles.constants';
 import NotificationBell from './NotificationBell';
+import ModalCambiarPasswordPropio from './seguridad/ModalCambiarPasswordPropio';
+import AvatarBadge from './ui/AvatarBadge';
 
 // Configuración de elementos del menú lateral con control de acceso basado en roles (RBAC)
 const NAV_ITEMS = [
@@ -84,6 +87,7 @@ const Layout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [modalPasswordOpen, setModalPasswordOpen] = useState(false);
   const menuRef = useRef(null);
 
   // Obtención y normalización de credenciales de usuario
@@ -91,6 +95,7 @@ const Layout = () => {
   const rawRole = useMemo(() => getUserRole() || 'personal', []);
   const userRole = useMemo(() => normalizeRole(rawRole), [rawRole]);
   const displayRole = useMemo(() => formatRoleName(rawRole), [rawRole]);
+  const [avatarUrl, setAvatarUrl] = useState(() => getUserAvatar());
 
   // Formateo de fecha localized para el encabezado superior
   const todayFormatted = useMemo(() => {
@@ -114,6 +119,37 @@ const Layout = () => {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Sincronización reactiva del avatar con el backend y eventos de cambio de perfil
+  useEffect(() => {
+    const handleAvatar = () => {
+      setAvatarUrl(getUserAvatar());
+    };
+    window.addEventListener('user-avatar-changed', handleAvatar);
+    window.addEventListener('storage', handleAvatar);
+
+    // Cargar perfil actualizado directamente del backend
+    const username = getUserIdentifier();
+    const token = getToken();
+    if (username) {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8080/api'}/usuarios/perfil/${encodeURIComponent(username)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.fotoPerfilUrl) {
+            setAvatarUrl(data.fotoPerfilUrl);
+            localStorage.setItem('userAvatar', data.fotoPerfilUrl);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener('user-avatar-changed', handleAvatar);
+      window.removeEventListener('storage', handleAvatar);
+    };
   }, []);
 
   // Cierre de sesión con confirmación institucional
@@ -244,10 +280,7 @@ const Layout = () => {
                 className="flex items-center gap-2.5 p-1.5 pr-3 rounded-2xl hover:bg-slate-100/80
                            transition-all outline-none border border-transparent hover:border-slate-200 cursor-pointer"
               >
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary-600 to-dental-500
-                                text-white text-xs font-bold flex items-center justify-center shadow-xs">
-                  {initials}
-                </div>
+                <AvatarBadge initials={initials} size="sm" src={avatarUrl} />
                 <div className="hidden sm:block text-left">
                   <p className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
                     {userName}
@@ -262,36 +295,38 @@ const Layout = () => {
               {menuOpen && (
                 <div
                   role="menu"
-                  className="absolute top-[calc(100%+8px)] right-0 w-60 bg-white
+                  className="absolute top-[calc(100%+8px)] right-0 w-52 bg-white
                              rounded-2xl shadow-xl border border-slate-200/80
-                             overflow-hidden z-50 animate-scale-in"
+                             overflow-hidden z-50 animate-scale-in p-1.5 space-y-1"
                 >
-                  {/* Tarjeta de información del usuario */}
-                  <div className="px-4 py-3.5 bg-slate-50 border-b border-slate-100 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-primary-600 to-dental-500
-                                    text-white text-sm font-bold flex items-center justify-center flex-shrink-0 shadow-xs">
-                      {initials}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-slate-800 truncate">{userName}</p>
-                      <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary-100 text-primary-700">
-                        {displayRole}
-                      </span>
-                    </div>
-                  </div>
+                  {/* Opción Cambiar Contraseña */}
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      setModalPasswordOpen(true);
+                    }}
+                    className="w-full px-3.5 py-2 flex items-center gap-2.5 text-xs font-semibold
+                               text-slate-700 hover:bg-slate-100 rounded-xl transition-colors text-left cursor-pointer"
+                  >
+                    <i className="bi bi-key text-slate-500 text-sm" />
+                    Cambiar contraseña
+                  </button>
 
-                  {/* Acciones */}
-                  <div className="p-1.5">
-                    <button
-                      role="menuitem"
-                      onClick={handleLogout}
-                      className="w-full px-3.5 py-2.5 flex items-center gap-2.5 text-xs font-semibold
-                                 text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left cursor-pointer"
-                    >
-                      <i className="bi bi-box-arrow-right text-sm" />
-                      Cerrar sesión
-                    </button>
-                  </div>
+                  <div className="h-px bg-slate-100 my-1" />
+
+                  {/* Opción Cerrar Sesión */}
+                  <button
+                    role="menuitem"
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full px-3.5 py-2 flex items-center gap-2.5 text-xs font-semibold
+                               text-red-600 hover:bg-red-50 rounded-xl transition-colors text-left cursor-pointer"
+                  >
+                    <i className="bi bi-box-arrow-right text-sm" />
+                    Cerrar sesión
+                  </button>
                 </div>
               )}
             </div>
@@ -302,6 +337,7 @@ const Layout = () => {
         <div className="flex-1 flex flex-col min-h-0 overflow-auto bg-surface">
           <Outlet />
         </div>
+        <ModalCambiarPasswordPropio isOpen={modalPasswordOpen} onClose={() => setModalPasswordOpen(false)} />
       </main>
     </div>
   );

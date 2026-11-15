@@ -25,15 +25,18 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
     } catch (_) {}
   };
 
+  const cambiarEsGeneral = (val) => {
+    setEsGeneral(val);
+    if (val) {
+      setSelectedTeeth([]);
+    }
+  };
+
   const handleOdontogramChange = (teeth) => setSelectedTeeth(teeth);
 
   const handleRegistrarHallazgo = async () => {
     if (!evaluacion?.idEvaluacionClinica) {
       alertWarning('Debes guardar el diagnóstico primero.');
-      return;
-    }
-    if (!esGeneral && selectedTeeth.length === 0) {
-      alertWarning('Selecciona al menos una pieza dental en el odontograma, o activa la opción de Procedimiento General.');
       return;
     }
     if (!selectedTratamiento) {
@@ -45,9 +48,17 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
       return;
     }
 
+    const tObj = tratamientos.find(t => String(t.idTratamiento) === String(selectedTratamiento));
+    const esTratamientoGeneral = tObj ? tObj.esPorPieza === false : esGeneral;
+
+    if (!esTratamientoGeneral && selectedTeeth.length === 0) {
+      alertWarning('Este tratamiento es por pieza dental. Por favor selecciona al menos una pieza en el odontograma.');
+      return;
+    }
+
     setSavingHallazgo(true);
     try {
-      if (esGeneral) {
+      if (esTratamientoGeneral) {
         // Procedimiento general (boca completa / sin pieza asociada)
         await createHallazgo({
           idEvaluacionClinica: evaluacion.idEvaluacionClinica,
@@ -87,7 +98,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
    * La lógica de fetch sube al hook (sale de TratamientoSelector).
    */
   const handleCrearTratamiento = async (datos) => {
-    const { nombreTratamiento, descripcionTratamiento, costoTratamiento } = datos;
+    const { nombreTratamiento, descripcionTratamiento, costoTratamiento, esPorPieza } = datos;
     if (!nombreTratamiento?.trim()) {
       throw new Error('El nombre del tratamiento es obligatorio.');
     }
@@ -100,6 +111,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
         ? descripcionTratamiento.trim()
         : nombreTratamiento.trim(),
       costoTratamiento: parseFloat(costoTratamiento),
+      esPorPieza: esPorPieza !== undefined ? esPorPieza : !esGeneral,
     });
     await loadTratamientos();
     setSelectedTratamiento(String(nuevoItem.idTratamiento));
@@ -113,7 +125,7 @@ export const useTratamientos = (evaluacion, onHallazgoRegistrado) => {
     selectedTeeth,
     selectedTratamiento, setSelectedTratamiento,
     customPrecio,        setCustomPrecio,
-    esGeneral,           setEsGeneral,
+    esGeneral,           setEsGeneral: cambiarEsGeneral,
     savingHallazgo,
     handleOdontogramChange,
     handleRegistrarHallazgo,

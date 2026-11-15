@@ -4,6 +4,7 @@ import {
   createUsuario, updateUsuario, deleteUsuario,
 } from '../services/usuario.service';
 import { alertSuccess, alertError, confirmDeactivate } from '../utils/alert.utils';
+import { getUserIdentifier } from '../services/auth.service';
 
 const FORM_INICIAL = {
   nombreUsuario:   '',
@@ -13,9 +14,9 @@ const FORM_INICIAL = {
   password:        '',
   idRol:           1,
   esActivo:        true,
-  // NUEVO: campos exclusivos del rol Odontologo
   especialidadOdontologo: '',
   jvpoId:                 '',
+  fotoPerfilUrl:          '',
 };
 
 /**
@@ -71,12 +72,11 @@ export const useUserManagement = () => {
       usernameUsuario: user.usernameUsuario,
       emailUsuario:    user.emailUsuario,
       password:        '',
-      // Resolver el idRol desde el array de roles cargados
       idRol:   roles.find(r => r.nombreRol === user.rol)?.idRol ?? roles[0]?.idRol ?? 1,
       esActivo: user.esActivo,
-      // NUEVO: por ahora quedan vacíos al editar (ver nota abajo)
       especialidadOdontologo: user.especialidadOdontologo ?? '',
       jvpoId:                 user.jvpoId ?? '',
+      fotoPerfilUrl:          user.fotoPerfilUrl ?? '',
     });
   };
 
@@ -106,6 +106,26 @@ export const useUserManagement = () => {
       if (!payload.password) delete payload.password;
       await updateUsuario(selectedId, payload);
       alertSuccess('Usuario actualizado', 'Los cambios se guardaron correctamente.');
+
+      // Si el usuario actualizado es el usuario logueado en la sesión actual, actualizar su avatar en vivo en el Layout
+      const currentIdentifier = (getUserIdentifier() || '').toLowerCase().trim();
+      const currentNombre = (getUserName() || '').toLowerCase().trim();
+      const updatedUsername = (payload.usernameUsuario || '').toLowerCase().trim();
+      const updatedEmail = (payload.emailUsuario || '').toLowerCase().trim();
+      const updatedNombre = `${payload.nombreUsuario || ''} ${payload.apellidoUsuario || ''}`.toLowerCase().trim();
+
+      const esMismoUsuario = (currentIdentifier && (updatedUsername === currentIdentifier || updatedEmail === currentIdentifier)) ||
+                             (currentNombre && (updatedNombre === currentNombre || updatedUsername === currentNombre));
+
+      if (esMismoUsuario) {
+        if (payload.fotoPerfilUrl) {
+          localStorage.setItem('userAvatar', payload.fotoPerfilUrl);
+        } else {
+          localStorage.removeItem('userAvatar');
+        }
+        window.dispatchEvent(new Event('user-avatar-changed'));
+      }
+
       await refetch();
       handleCancel();
     } catch (err) {

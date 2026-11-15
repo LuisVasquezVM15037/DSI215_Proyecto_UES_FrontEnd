@@ -12,6 +12,7 @@ const FILTERS = ['Hallazgos', 'Presupuestado', 'Programado', 'Realizado'];
 const StepOdontograma = ({
   cita,
   hallazgos,
+  tratamientosPendientesPrevios = [],
   onCambiarEstado,
   onEliminarHallazgo,
   tratamientos,
@@ -29,6 +30,13 @@ const StepOdontograma = ({
   const [activeFilter, setActiveFilter] = useState('Hallazgos');
   const showHistorial = activeFilter === 'Programado' || activeFilter === 'Realizado';
   const piecesText = selectedTeeth.map(t => t.notations?.fdi || t.id).join(', ');
+
+  // Separación estricta de tratamientos por pieza vs generales (Punto 3)
+  const tratamientosSegunAmbito = useMemo(() => {
+    return (tratamientos || []).filter(t => {
+      return esGeneral ? t.esPorPieza === false : t.esPorPieza !== false;
+    });
+  }, [tratamientos, esGeneral]);
 
   // Hallazgos existentes → rojo en el odontograma.
   // Formato de ID: "teeth-XX" donde XX = piezaDental (FDI).
@@ -138,6 +146,30 @@ const StepOdontograma = ({
       <aside className="w-72 flex-shrink-0 flex flex-col bg-white rounded-2xl
                         border border-slate-200 shadow-card p-4 gap-4 overflow-y-auto">
 
+
+        {/* Trazabilidad de tratamientos pendientes de citas previas (Punto 5) */}
+        {(tratamientosPendientesPrevios || []).length > 0 && (
+          <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-2xl text-xs space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between text-amber-900 font-bold">
+              <span className="flex items-center gap-1.5">
+                <i className="bi bi-clock-history text-amber-600"></i>
+                Tratamientos Pendientes de Citas Previas ({tratamientosPendientesPrevios.length})
+              </span>
+              <span className="text-[10px] bg-amber-200/70 text-amber-800 px-2 py-0.5 rounded-full">
+                Trazabilidad
+              </span>
+            </div>
+            <div className="space-y-1 max-h-24 overflow-y-auto">
+              {tratamientosPendientesPrevios.map((tp) => (
+                <div key={tp.idPlanTratamiento} className="bg-white/80 p-1.5 rounded-lg border border-amber-100 flex items-center justify-between text-[11px] text-slate-700">
+                  <span><strong>{tp.piezaDental ? `Pieza #${tp.piezaDental}` : 'General'}:</strong> {tp.nombreTratamiento}</span>
+                  <span className="font-semibold text-amber-700 uppercase text-[10px]">{tp.estadoPlan}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <h6 className="font-bold text-slate-800 text-sm">Registrar hallazgo / procedimiento</h6>
 
         {/* Selector de Ámbito: Por Pieza vs General (ej. Limpieza Dental) */}
@@ -182,7 +214,7 @@ const StepOdontograma = ({
             {esGeneral ? 'Procedimiento' : 'Tratamiento'}
           </label>
           <TratamientoSelector
-            tratamientos={tratamientos}
+            tratamientos={tratamientosSegunAmbito}
             selectedId={selectedTratamiento}
             onSelect={(id) => {
               setSelectedTratamiento(id);
@@ -191,6 +223,7 @@ const StepOdontograma = ({
             }}
             onCrear={onCrearNuevoTratamiento}
             crearLoading={savingHallazgo}
+            esGeneral={esGeneral}
           />
         </div>
 

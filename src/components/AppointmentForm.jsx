@@ -46,10 +46,12 @@ const AppointmentForm = ({
   isEditing, date, formData,
   pacientes = [], odontologos = [], loading,
   onChange, onSubmit, onCancelar,
+  allAppointments = [],
 }) => {
   const [errors, setErrors] = useState({});
   const [franjasHorarias, setFranjasHorarias] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
+  const [mostrarAjusteManual, setMostrarAjusteManual] = useState(false);
 
   const pacienteOptions = useMemo(() => (
     pacientes.map(p => ({
@@ -91,7 +93,30 @@ const AppointmentForm = ({
     return () => { activo = false; };
   }, [formData.idOdontologo, formData.fechaCita]);
 
-  // ── Detección de conflicto de horario (DENTALCARE-60 / PBI-Secret-08) ────────
+  // ── Detección de conflicto de cita duplicada para el PACIENTE ───────────
+  const hayConflictoPaciente = useMemo(() => {
+    if (!formData.idPaciente || !formData.horaInicioCita || !formData.horaFinCita || !allAppointments?.length) {
+      return false;
+    }
+    return allAppointments.some(c => {
+      // Ignorar la cita actual en edición
+      if (isEditing && formData.idCitas && String(c.idCitas) === String(formData.idCitas)) {
+        return false;
+      }
+      const pacId = c.idPaciente || c.paciente?.idPaciente;
+      if (String(pacId) !== String(formData.idPaciente)) {
+        return false;
+      }
+      const estado = (c.estadoCita || '').toUpperCase();
+      const esActiva = ['PROGRAMADA', 'PENDIENTE', 'EN_PROGRESO'].includes(estado);
+      if (!esActiva) return false;
+
+      // Solapamiento: inicio < c.horaFin && fin > c.horaInicio
+      return formData.horaInicioCita < c.horaFinCita && formData.horaFinCita > c.horaInicioCita;
+    });
+  }, [formData.idPaciente, formData.horaInicioCita, formData.horaFinCita, allAppointments, isEditing, formData.idCitas]);
+
+  // ── Detección de conflicto de horario con el Odontólogo (DENTALCARE-60) ────────
   const hayConflictoHorario = useMemo(() => {
     if (!formData.horaInicioCita || !formData.horaFinCita || franjasHorarias.length === 0) {
       return false;
@@ -281,36 +306,86 @@ const AppointmentForm = ({
           </div>
         )}
 
-        {/* Horas Manuales / Automáticas */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label required>Hora inicio</Label>
-            <Input
-              type="datetime-local"
-              name="horaInicioCita"
-              value={formData.horaInicioCita}
-              onChange={handleHoraInicioChange}
-              error={errors.horaInicioCita || hayConflictoHorario}
-            />
-            {errors.horaInicioCita && (
-              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                <i className="bi bi-exclamation-circle" /> {errors.horaInicioCita}
-              </p>
-            )}
+        {/* ── ALERTA DE CONFLICTO DE PACIENTE DUPLICADO ── */}
+        {hayConflictoPaciente && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 px-3.5 py-2.5 rounded-xl text-xs flex items-start gap-2 animate-fadeIn">
+            <i className="bi bi-person-x-fill text-rose-500 text-base mt-0.5 shrink-0"></i>
+            <div>
+              <strong className="font-bold block">Conflicto de Cita Duplicada (Paciente)</strong>
+              <span>
+                El paciente ya cuenta con otra cita activa en este mismo intervalo horario.
+                Por favor, selecciona otra fecha u horario libre para evitar duplicaciones.
+              </span>
+            </div>
           </div>
-          <div>
-            <Label>Hora fin</Label>
-            <Input
-              type="datetime-local"
-              name="horaFinCita"
-              value={formData.horaFinCita}
-              readOnly
-              tabIndex={-1}
-              className="bg-slate-50 text-slate-500 cursor-not-allowed"
-              title="Se calcula automáticamente (1 hora de duración)"
-            />
-            <p className="mt-1 text-[11px] text-slate-400">Calculada automáticamente (1 hora).</p>
-          </div>
+        )}
+
+        {/* ── RESUMEN VISUAL DE HORARIO ASIGNADO (PUNTO 1: UI/UX SIN INPUTS REDUNDANTES) ── */}
+        <div className="space-y-2">
+          {formData.horaInicioCita && formData.horaFinCita ? (
+            <div className="p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <i className="bi bi-calendar-check-fill text-sm"></i>
+                </div>
+                <div>
+                  <span className="font-bold text-slate-800 block text-xs">
+                    Horario Asignado: {formData.horaInicioCita.split('T')[1]?.substring(0, 5)} a {formData.horaFinCita.split('T')[1]?.substring(0, 5)}
+                  </span>
+                  <span className="text-[11px] text-emerald-700 font-medium">
+                    Fecha: {formData.fechaCita} • Duración clínica estándar (1 hora)
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMostrarAjusteManual(!mostrarAjusteManual)}
+                className="text-[11px] text-slate-500 hover:text-slate-800 underline font-medium cursor-pointer"
+              >
+                {mostrarAjusteManual ? 'Ocultar ajuste manual' : 'Ajuste manual'}
+              </button>
+            </div>
+          ) : (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500">
+              <i className="bi bi-hand-index-thumb mr-1.5 text-primary-600"></i>
+              Selecciona una franja horaria disponible arriba para asignar el horario de la cita.
+            </div>
+          )}
+
+          {errors.horaInicioCita && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <i className="bi bi-exclamation-circle" /> {errors.horaInicioCita}
+            </p>
+          )}
+
+          {/* Inputs manuales auxiliares (solo si el usuario solicita ajuste manual) */}
+          {mostrarAjusteManual && (
+            <div className="grid grid-cols-2 gap-3 pt-1 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+              <div>
+                <Label required>Hora inicio</Label>
+                <Input
+                  type="datetime-local"
+                  name="horaInicioCita"
+                  value={formData.horaInicioCita}
+                  onChange={handleHoraInicioChange}
+                  error={errors.horaInicioCita || hayConflictoHorario || hayConflictoPaciente}
+                />
+              </div>
+              <div>
+                <Label>Hora fin</Label>
+                <Input
+                  type="datetime-local"
+                  name="horaFinCita"
+                  value={formData.horaFinCita}
+                  readOnly
+                  tabIndex={-1}
+                  className="bg-slate-100 text-slate-500 cursor-not-allowed"
+                  title="Se calcula automáticamente (1 hora de duración)"
+                />
+                <p className="mt-1 text-[10px] text-slate-400">Calculada automáticamente (1 hora).</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Estado (solo en edición) */}

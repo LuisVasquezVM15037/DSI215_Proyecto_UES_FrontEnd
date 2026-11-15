@@ -1,53 +1,76 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Button from './ui/Button';
+import ModalAgendarSiguienteCita from './consulta/ModalAgendarSiguienteCita';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 /**
-Este componente representa el paso de cierre de la consulta médica en el proceso de atención. Muestra un resumen de los hallazgos y prescripción registrados, junto con un mensaje de éxito. Permite al médico imprimir solo la receta en una nueva ventana formateada para impresión, y también ofrece un botón para volver a la pantalla principal de consultas. El diseño es limpio y centrado, con íconos visuales para reforzar el mensaje de cierre exitoso.
+ * Paso 4: Cierre y Resumen Clínico de la Consulta (Punto 5).
+ * - Resumen visual de procedimientos realizados y pendientes.
+ * - Bloqueo estricto de finalización si quedan procedimientos pendientes sin reagendar.
+ * - Impresión de receta médica.
  */
+const StepCierre = ({
+  cita,
+  hallazgos = [],
+  prescripcion,
+  onVolver,
+  onAgendarSiguiente,
+}) => {
+  const [reagendadoConfirmado, setReagendadoConfirmado] = useState(false);
+  const [modalReagendarOpen, setModalReagendarOpen] = useState(false);
+  const [citaAgendada, setCitaAgendada] = useState(null);
 
-// Recibe la cita, hallazgos, prescripción y función para volver
-//cita> { id, nombreCompletoPaciente, fechaHora }
-//hallazgos> [{ idPlanTratamiento, nombreTratamiento, piezaDental }]
-//prescripcion> { detalles: [{ idMedicamento, nombreMedicamento, dosis, frecuencia, duracion, indicaciones }] }
-//onVolver> Callback al hacer click en el botón volver.
-
-const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver, onAgendarSiguiente }) => {
-  // Hallazgos pendientes que justifican reagendar una próxima sesión
-  const hallazgosPendientes = hallazgos.filter(
-    h => !['COMPLETADO', 'CANCELADO'].includes(h.estadoPlan?.toUpperCase())
+  // Clasificación de procedimientos
+  const hallazgosRealizados = hallazgos.filter(
+    h => ['COMPLETADO', 'FINALIZADO'].includes(h.estadoPlan?.toUpperCase())
   );
-  const tienePendientes = hallazgosPendientes.length > 0;
+  const hallazgosPendientes = hallazgos.filter(
+    h => !['COMPLETADO', 'FINALIZADO', 'CANCELADO'].includes(h.estadoPlan?.toUpperCase())
+  );
 
-  // Función para imprimir solo la receta, formateando los datos en una nueva ventana
+  const tienePendientes = hallazgosPendientes.length > 0;
+  const puedeCerrar = !tienePendientes || reagendadoConfirmado;
+
+  const handleReagendarClick = () => {
+    setModalReagendarOpen(true);
+  };
+
+  // Función para imprimir receta médica
   const imprimirReceta = () => {
     const detallesReceta = prescripcion?.detalles?.map((med, index) => `
       <tr>
         <td>${index + 1}</td>
-        <td>${med.nombreMedicamento || ''}</td>
+        <td><strong>${med.nombreMedicamento || ''}</strong></td>
         <td>${med.dosis || ''}</td>
         <td>${med.frecuencia || ''}</td>
-        <td>${med.duracion || ''}</td>
-        <td>${med.indicaciones || ''}</td>
+        <td>${med.duracion || ''} días</td>
+        <td>${med.indicaciones || 'Según prescripción médica'}</td>
       </tr>
     `).join('');
-    // Si no hay detalles, mostrar un mensaje en la tabla
+
     const contenido = `
       <html>
         <head>
-          <title>Receta de ${cita.nombreCompletoPaciente}</title>
+          <title>Receta Médica - ${cita?.nombreCompletoPaciente || 'Paciente'}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            h1 { font-size: 20px; margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 1px solid #aaa; padding: 8px; text-align: left; }
-            th { background: #f4f4f4; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 30px; color: #1e293b; }
+            .header { border-bottom: 2px solid #0284c7; padding-bottom: 12px; margin-bottom: 20px; }
+            h1 { font-size: 22px; color: #0369a1; margin: 0 0 4px 0; }
+            .meta { font-size: 13px; color: #64748b; line-height: 1.5; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+            th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+            th { background: #f8fafc; color: #334155; font-weight: bold; }
+            .footer { margin-top: 40px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
           </style>
         </head>
         <body>
-          <h1>Receta</h1>
-          <p><strong>Paciente:</strong> ${cita.nombreCompletoPaciente}</p>
-          <p><strong>Fecha:</strong> ${new Date(cita.fechaHora || cita.fechaCita || Date.now()).toLocaleString()}</p>
+          <div class="header">
+            <h1>DentalCare ERP — Prescripción Odontológica</h1>
+            <div class="meta">
+              <p><strong>Paciente:</strong> ${cita?.nombreCompletoPaciente || 'Paciente'}</p>
+              <p><strong>Fecha de Emisión:</strong> ${new Date(cita?.fechaHora || cita?.fechaCita || Date.now()).toLocaleDateString()}</p>
+            </div>
+          </div>
           <table>
             <thead>
               <tr>
@@ -60,13 +83,15 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver, onAgendarSig
               </tr>
             </thead>
             <tbody>
-              ${detallesReceta || '<tr><td colspan="6">No hay medicamentos registrados.</td></tr>'}
+              ${detallesReceta || '<tr><td colspan="6" style="text-align:center;">No se registraron medicamentos.</td></tr>'}
             </tbody>
           </table>
+          <div class="footer">
+            Documento emitido electrónicamente desde la plataforma DentalCare ERP. Válido para control y despacho en farmacia.
+          </div>
         </body>
       </html>
     `;
-    // Abrir una nueva ventana, escribir el contenido formateado, imprimir y cerrar la ventana
     const nuevaVentana = window.open('', '_blank');
     if (nuevaVentana) {
       nuevaVentana.document.write(contenido);
@@ -77,75 +102,168 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver, onAgendarSig
     }
   };
 
-  // Renderizado de la pantalla de cierre, mostrando resumen y opciones para imprimir o volver
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-card mt-4
-                    flex-1 flex items-center justify-center animate-fade-in p-6">
-      <div className="text-center py-6 px-4 max-w-lg w-full">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-card mt-4 flex-1 overflow-y-auto animate-fade-in p-6">
+      <div className="max-w-3xl mx-auto space-y-6">
 
-        {/* Ícono de éxito */}
-        <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center
-                        mx-auto mb-4">
-          <i className="bi bi-check-circle-fill text-emerald-500 text-4xl" />
+        {/* Encabezado y felicitación */}
+        <div className="text-center pb-2">
+          <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3 shadow-xs">
+            <i className="bi bi-clipboard2-check-fill text-emerald-600 text-3xl" />
+          </div>
+          <h2 className="text-xl font-black text-slate-800">Resumen y Cierre de Consulta</h2>
+          <p className="text-slate-500 text-xs mt-1">
+            Expediente clínico de <strong className="text-slate-700">{cita?.nombreCompletoPaciente}</strong> actualizado correctamente.
+          </p>
         </div>
 
-        {/* Título y mensaje de cierre */}
-        <h2 className="text-2xl font-bold text-slate-800 mb-2">Consulta Finalizada</h2>
-        <p className="text-slate-500 text-sm mb-5">
-          El expediente de <strong className="text-slate-700">{cita.nombreCompletoPaciente}</strong> ha sido actualizado correctamente.
-        </p>
+        {/* ── RESUMEN VISUAL DE PROCEDIMIENTOS (PUNTO 5) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* Resumen de lo registrado */}
-        <div className="flex items-center justify-center gap-3 mb-6">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-sky-50 text-sky-700
-                          rounded-full text-xs font-semibold">
-            <i className="bi bi-tooth text-xs" />
-            {hallazgos.length} Procedimientos en plan
+          {/* Procedimientos Realizados en esta sesión */}
+          <div className="border border-emerald-200 bg-emerald-50/40 rounded-2xl p-4 shadow-xs">
+            <div className="flex items-center justify-between mb-3 border-b border-emerald-200/60 pb-2">
+              <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                <i className="bi bi-check2-circle text-emerald-600 text-base"></i>
+                Procedimientos Realizados ({hallazgosRealizados.length})
+              </span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200/70 text-emerald-800">
+                Sesión Actual
+              </span>
+            </div>
+
+            {hallazgosRealizados.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-3 text-center">
+                No se marcaron procedimientos como realizados en esta consulta.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {hallazgosRealizados.map((h) => (
+                  <div
+                    key={h.idPlanTratamiento}
+                    className="p-2.5 bg-white rounded-xl border border-emerald-200/70 text-xs flex items-center justify-between shadow-2xs"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-800 block">
+                        {h.piezaDental ? `Pieza FDI #${h.piezaDental}` : 'Procedimiento General'}
+                      </span>
+                      <span className="text-[11px] text-slate-500">{h.nombreTratamiento}</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
+                      Realizado
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700
-                          rounded-full text-xs font-semibold">
-            <i className="bi bi-capsule text-xs" />
-            {prescripcion?.detalles?.length ?? 0} Medicamentos recetados
+
+          {/* Procedimientos Pendientes / En Plan */}
+          <div className={`border rounded-2xl p-4 shadow-xs transition-colors ${
+            tienePendientes
+              ? 'border-amber-300 bg-amber-50/50'
+              : 'border-slate-200 bg-slate-50/50'
+          }`}>
+            <div className="flex items-center justify-between mb-3 border-b border-amber-200/60 pb-2">
+              <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                <i className="bi bi-hourglass-split text-amber-600 text-base"></i>
+                Procedimientos Pendientes ({hallazgosPendientes.length})
+              </span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                tienePendientes ? 'bg-amber-200 text-amber-800' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {tienePendientes ? 'Requiere Cita' : 'Completos'}
+              </span>
+            </div>
+
+            {hallazgosPendientes.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-3 text-center">
+                ¡Excelente! Todos los procedimientos previstos fueron completados.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {hallazgosPendientes.map((h) => (
+                  <div
+                    key={h.idPlanTratamiento}
+                    className="p-2.5 bg-white rounded-xl border border-amber-200 text-xs flex items-center justify-between shadow-2xs"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-800 block">
+                        {h.piezaDental ? `Pieza FDI #${h.piezaDental}` : 'Procedimiento General'}
+                      </span>
+                      <span className="text-[11px] text-slate-500">{h.nombreTratamiento}</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-100 text-amber-800">
+                      Pendiente
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* AVISO DE REAGENDACIÓN AUTOMÁTICA SI QUEDAN PROCEDIMIENTOS PENDIENTES */}
+        {/* ── REGLA DE NEGOCIO: OBLIGATORIEDAD DE REAGENDAMIENTO (PUNTO 5) ── */}
         {tienePendientes && (
-          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-left animate-fade-in">
+          <div className={`p-4 rounded-2xl border text-xs transition-all ${
+            reagendadoConfirmado
+              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+              : 'bg-rose-50 border-rose-300 text-rose-900 shadow-xs'
+          }`}>
             <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0 text-amber-600 mt-0.5">
-                <i className="bi bi-calendar-event text-base" />
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-base ${
+                reagendadoConfirmado ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+              }`}>
+                <i className={`bi ${reagendadoConfirmado ? 'bi-calendar-check-fill' : 'bi-exclamation-octagon-fill'}`}></i>
               </div>
               <div className="flex-1 min-w-0">
-                <h6 className="text-sm font-bold text-amber-900 mb-1">
-                  Procedimientos pendientes para otra cita ({hallazgosPendientes.length})
-                </h6>
-                <p className="text-xs text-amber-700 mb-2">
-                  Quedan hallazgos/tratamientos sin completar en el plan de este paciente:
+                <strong className="font-bold block text-sm mb-0.5">
+                  {reagendadoConfirmado
+                    ? 'Próxima cita coordinada'
+                    : 'Reagendamiento Obligatorio por Procedimientos Pendientes'}
+                </strong>
+                <p className="text-[11px] leading-relaxed mb-3">
+                  {reagendadoConfirmado
+                    ? (citaAgendada 
+                        ? `Próxima cita programada exitosamente para el ${citaAgendada.fechaCita} (${citaAgendada.horaInicio} - ${citaAgendada.horaFin}). Ya puedes finalizar la consulta.`
+                        : 'Se ha coordinado la sesión de seguimiento. Ya puedes dar por concluida la atención y volver a la consola.')
+                    : `El paciente tiene ${hallazgosPendientes.length} procedimiento(s) pendiente(s). Para garantizar la continuidad clínica, el sistema exige agendar la próxima cita antes de salir.`}
                 </p>
-                <div className="max-h-28 overflow-y-auto space-y-1 mb-3">
-                  {hallazgosPendientes.map(h => (
-                    <div key={h.idPlanTratamiento} className="text-xs text-amber-800 bg-white/70 px-2.5 py-1 rounded-lg border border-amber-200/50 flex justify-between items-center">
-                      <span><strong>{h.piezaDental ? `Pieza ${h.piezaDental}` : 'General'}:</strong> {h.nombreTratamiento}</span>
-                      <span className="font-semibold text-[11px] uppercase text-amber-600">{h.estadoPlan}</span>
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={onAgendarSiguiente}
-                  icon={<i className="bi bi-calendar-plus" />}
-                >
-                  Agendar Próxima Cita Ahora
-                </Button>
+
+                {!reagendadoConfirmado && (
+                  <button
+                    type="button"
+                    onClick={handleReagendarClick}
+                    className="py-2 px-3.5 rounded-xl font-bold text-xs bg-rose-700 text-white hover:bg-rose-800 transition-colors flex items-center gap-2 shadow-xs cursor-pointer animate-pulse"
+                  >
+                    <i className="bi bi-calendar-plus-fill"></i>
+                    <span>Reagendar Próxima Cita Ahora</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-3">
-          {/* Botón para imprimir solo la receta */}
+        {/* Resumen de Prescripción */}
+        {prescripcion?.detalles?.length > 0 && (
+          <div className="p-3.5 bg-sky-50/60 border border-sky-200 rounded-xl text-xs flex items-center justify-between text-sky-900">
+            <div className="flex items-center gap-2">
+              <i className="bi bi-capsule text-sky-600 text-base"></i>
+              <span>Receta emitida con <strong>{prescripcion.detalles.length} medicamento(s)</strong>.</span>
+            </div>
+            <button
+              type="button"
+              onClick={imprimirReceta}
+              className="text-sky-700 hover:text-sky-900 font-bold underline cursor-pointer"
+            >
+              Imprimir Receta
+            </button>
+          </div>
+        )}
+
+        {/* Botones de Acción */}
+        <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
           <Button
             variant="outline"
             onClick={imprimirReceta}
@@ -153,15 +271,35 @@ const StepCierre = ({ cita, hallazgos = [], prescripcion, onVolver, onAgendarSig
           >
             Imprimir Receta
           </Button>
-          {/* Botón para volver a la pantalla de consultas */}
-          <Button
-            onClick={onVolver}
-            icon={<i className="bi bi-house" />}
-          >
-            Volver a Consultas
-          </Button>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant={puedeCerrar ? 'primary' : 'disabled'}
+              disabled={!puedeCerrar}
+              onClick={onVolver}
+              title={!puedeCerrar ? 'Debe reagendar la próxima cita antes de salir' : 'Finalizar y salir'}
+              icon={<i className="bi bi-check2-all" />}
+            >
+              {puedeCerrar ? 'Concluir y Volver a Consultas' : 'Reagendamiento Pendiente'}
+            </Button>
+          </div>
         </div>
+
       </div>
+
+      {/* Modal de Reagendamiento de Próxima Cita (Punto 5) */}
+      {modalReagendarOpen && (
+        <ModalAgendarSiguienteCita
+          isOpen={modalReagendarOpen}
+          onClose={() => setModalReagendarOpen(false)}
+          cita={cita}
+          hallazgosPendientes={hallazgosPendientes}
+          onCitaAgendada={(nueva) => {
+            setCitaAgendada(nueva);
+            setReagendadoConfirmado(true);
+          }}
+        />
+      )}
     </div>
   );
 };

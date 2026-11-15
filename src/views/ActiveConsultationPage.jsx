@@ -90,6 +90,7 @@ const ActiveConsultationPage = () => {
         <StepOdontograma
           cita={consulta.cita}
           hallazgos={consulta.hallazgos}
+          tratamientosPendientesPrevios={consulta.tratamientosPendientesPrevios}
           onCambiarEstado={consulta.handleCambiarEstado}
           onEliminarHallazgo={consulta.handleEliminarHallazgo}
           tratamientos={tratamientos.tratamientos}
@@ -144,10 +145,7 @@ const ActiveConsultationPage = () => {
           hallazgos={consulta.hallazgos}
           prescripcion={prescripcion.prescripcion}
           onVolver={() => navigate('/consulta')}
-          onAgendarSiguiente={() => {
-            const pacienteId = consulta.cita?.idPaciente || consulta.cita?.paciente?.idPaciente;
-            navigate(`/citas?pacienteId=${pacienteId}&nuevaCita=true`);
-          }}
+          onAgendarSiguiente={() => {}}
         />
       )}
     </div>

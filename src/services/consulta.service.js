@@ -32,3 +32,7 @@ export const getPrescripcionByCita = (citaId)  => apiFetch(`/consulta/prescripci
 export const createPrescripcion    = (data)    => apiFetch('/consulta/prescripcion', {
   method: 'POST', body: JSON.stringify(data),
 });
+
+
+// ── Trazabilidad de tratamientos pendientes de citas previas (Punto 5) ────────
+export const getTratamientosPendientesPaciente = (idPaciente) => apiFetch(`/consulta/paciente/${idPaciente}/tratamientos-pendientes`);

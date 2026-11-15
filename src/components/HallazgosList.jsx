@@ -1,51 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ESTADOS_HALLAZGO_OPCIONES, ESTADO_HALLAZGO } from '../constants/estados.constants';
 import { HALLAZGO_ESTADO_CONFIG } from '../utils/cita.utils';
+import ModalEvidenciasProcedimiento from './consulta/ModalEvidenciasProcedimiento';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 /**
- * Lista de hallazgos registrados en el odontograma.
- * * Permite al usuario:
- *   - Ver cada hallazgo con su pieza dental y tratamiento asociado.
+ * Lista de hallazgos y procedimientos registrados en el odontograma y consulta.
+ * Permite al usuario:
+ *   - Ver cada hallazgo con su pieza dental o indicación general.
+ *   - Ver y adjuntar fotos clínicas de evidencia (Punto 7).
  *   - Cambiar el estado de un hallazgo (ej: Pendiente → Completado).
  *   - Eliminar un hallazgo si aún no está en estado final.
  */
-
-//Hallazgo> Lista de hallazgos registrados en el odontograma
-//onCambiarEstado> Función para cambiar el estado de un hallazgo
-//onEliminar> Función para eliminar un hallazgo
-
-//Los colores del select de estado vienen de HALLAZGO_ESTADO_CONFIG en 'utils/cita.utils.js'
-//Las opciones del select de estado vienen de ESTADOS_HALLAZGO_OPCIONES en 'constants/estados.constants.js'.
-
-//Un hallazgo se considera en estado final si su estado es COMPLETADO o CANCELADO, en cuyo caso no se puede cambiar su estado ni eliminarlo.
 const HallazgosList = ({ hallazgos, onCambiarEstado, onEliminar }) => {
-  // Si no hay hallazgos, no renderiza el componente.
+  const [evidenciaPlan, setEvidenciaPlan] = useState(null);
+
   if (!hallazgos?.length) return null;
 
   return (
     <div className="mt-4 px-1">
       {/* Encabezado de la sección con contador de hallazgos */}
       <h6 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-        Hallazgos registrados ({hallazgos.length})
+        Procedimientos y Hallazgos registrados ({hallazgos.length})
       </h6>
-       {/* Lista de hallazgos con separación uniforme entre items */}
+
+      {/* Lista de hallazgos con separación uniforme entre items */}
       <div className="space-y-2">
-        {/* Itera sobre cada hallazgo para mostrar su información y controles asociados */}
         {hallazgos.map(h => {
-          {/*Si `esFinal` es true, se deshabilitan el select y el botón de eliminación. */}
           const esFinal = [ESTADO_HALLAZGO.COMPLETADO, ESTADO_HALLAZGO.CANCELADO].includes(h.estadoPlan);
-          // Si el estado no está en el mapa, usa el config de 'OTRO' como fallback.
           const estadoConf = HALLAZGO_ESTADO_CONFIG[h.estadoPlan] ?? HALLAZGO_ESTADO_CONFIG.OTRO;
 
           return (
-            // Fila individual de hallazgo con diseño flex para alinear los elementos horizontalmente y espacio entre ellos
             <div
               key={h.idPlanTratamiento}
               className="flex items-center gap-2 p-2.5 bg-white border border-slate-100
                          rounded-xl hover:border-slate-200 transition-colors"
             >
-              {/*Badge de Pieza dental o General */}
+              {/* Badge de Pieza dental o General */}
               <span className={`text-center text-xs font-bold rounded-lg py-1 px-2 flex-shrink-0 ${
                 h.piezaDental
                   ? 'w-14 text-primary-700 bg-primary-50'
@@ -59,19 +50,27 @@ const HallazgosList = ({ hallazgos, onCambiarEstado, onEliminar }) => {
                 {h.nombreTratamiento}
               </span>
 
+              {/* Botón de Evidencias / Fotos Clínicas (Punto 7) */}
+              <button
+                type="button"
+                onClick={() => setEvidenciaPlan(h)}
+                title="Ver y adjuntar fotos clínicas de evidencia"
+                className="px-2 py-1.5 flex items-center gap-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors flex-shrink-0"
+              >
+                <i className="bi bi-camera" />
+                <span className="hidden sm:inline">Fotos</span>
+              </button>
+
               {/* Select de estado */}
-              {/* Deshabilitado si el estado es final (COMPLETADO o CANCELADO).
-                  Los colores del select cambian dinámicamente según `estadoConf.tw`. */}
               <select
                 value={h.estadoPlan}
                 onChange={e => onCambiarEstado(h.idPlanTratamiento, e.target.value)}
                 disabled={esFinal}
-                aria-label={`Estado de hallazgo pieza ${h.piezaDental}`}
+                aria-label={`Estado de hallazgo pieza ${h.piezaDental || 'general'}`}
                 className={`text-xs px-2 py-1.5 rounded-lg border-0 font-medium outline-none
                             cursor-pointer disabled:cursor-default transition-colors
                             focus:ring-2 focus:ring-primary-500 ${estadoConf.tw}`}
               >
-                {/* Opciones de estado para el select, mapeadas desde ESTADOS_HALLAZGO_OPCIONES. Cada opción tiene un valor y una etiqueta. */}
                 {ESTADOS_HALLAZGO_OPCIONES.map(e => (
                   <option key={e.value} value={e.value}>{e.label}</option>
                 ))}
@@ -81,10 +80,8 @@ const HallazgosList = ({ hallazgos, onCambiarEstado, onEliminar }) => {
               {!esFinal && (
                 <button
                   type="button"
-                  // Al hacer clic, se llama a la función `onEliminar` con el ID del plan de tratamiento del hallazgo.
                   onClick={() => onEliminar(h.idPlanTratamiento)}
-                  // El botón está deshabilitado si el estado es final, y tiene estilos que cambian al pasar el mouse para indicar que es interactivo.
-                  aria-label={`Eliminar hallazgo pieza ${h.piezaDental}`}
+                  aria-label={`Eliminar hallazgo pieza ${h.piezaDental || 'general'}`}
                   className="w-7 h-7 flex items-center justify-center text-slate-400
                              hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors flex-shrink-0"
                 >
@@ -95,6 +92,15 @@ const HallazgosList = ({ hallazgos, onCambiarEstado, onEliminar }) => {
           );
         })}
       </div>
+
+      {/* Modal de Evidencias Clínicas */}
+      {evidenciaPlan && (
+        <ModalEvidenciasProcedimiento
+          isOpen={Boolean(evidenciaPlan)}
+          onClose={() => setEvidenciaPlan(null)}
+          procedimiento={evidenciaPlan}
+        />
+      )}
     </div>
   );
 };

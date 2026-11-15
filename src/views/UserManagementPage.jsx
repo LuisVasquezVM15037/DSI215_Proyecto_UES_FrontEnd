@@ -1,10 +1,12 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useUserManagement } from '../hooks/useUserManagement';
 import Button from '../components/ui/Button';
 import AvatarBadge from '../components/ui/AvatarBadge';
 import { LoadingSpinner, EmptyState } from '../components/ui/LoadingSpinner';
 import ModalRestablecerPassword from '../components/seguridad/ModalRestablecerPassword';
 import { formatRoleName } from '../constants/roles.constants';
+import { subirFotoPerfil } from '../services/archivo.service';
+import { alertSuccess, alertError } from '../utils/alert.utils';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 
 const FieldLabel = ({ children, required }) => (
@@ -54,10 +56,27 @@ const UserManagementPage = () => {
 
   const [formErrors, setFormErrors] = React.useState({});
   const [showResetModal, setShowResetModal] = React.useState(false);
+  const [subiendoFoto, setSubiendoFoto] = React.useState(false);
 
   const rolSeleccionado = roles.find(r => String(r.idRol) === String(formData.idRol));
   const esOdontologo = rolSeleccionado?.nombreRol === 'ODONTOLOGO';
   const selectedUser = users.find(u => u.idUsuario === selectedId);
+
+  const handleUploadAvatar = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubiendoFoto(true);
+    try {
+      const res = await subirFotoPerfil(file);
+      handleChange({ target: { name: 'fotoPerfilUrl', value: res.url } });
+      alertSuccess('Foto cargada', 'La imagen de perfil se subió correctamente.');
+    } catch (err) {
+      alertError(err.message);
+    } finally {
+      setSubiendoFoto(false);
+      e.target.value = '';
+    }
+  };
 
   return (
     <div className="flex h-full bg-surface overflow-hidden">
@@ -97,7 +116,7 @@ const UserManagementPage = () => {
                     ? 'bg-primary-600 text-white shadow-sm'
                     : 'hover:bg-slate-50 text-slate-700'}`}
               >
-                <AvatarBadge initials={initials} size="sm" inactive={!u.esActivo} />
+                <AvatarBadge initials={initials} size="sm" inactive={!u.esActivo} src={u.fotoPerfilUrl} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className={`text-sm font-semibold truncate leading-tight
@@ -162,6 +181,41 @@ const UserManagementPage = () => {
           </div>
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-card p-6 space-y-5">
+
+            {/* Foto de perfil (opcional - Punto 7) */}
+            <div className="flex items-center gap-4 p-4 bg-slate-50/80 border border-slate-200/80 rounded-xl">
+              <AvatarBadge
+                initials={`${formData.nombreUsuario?.[0] ?? ''}${formData.apellidoUsuario?.[0] ?? ''}`}
+                size="lg"
+                src={formData.fotoPerfilUrl}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold text-slate-700">Foto de perfil (Opcional)</p>
+                <p className="text-[11px] text-slate-500">Formatos: JPG, PNG o WebP (máx. 5MB)</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-xs font-semibold text-slate-700 rounded-lg hover:bg-slate-100 transition-colors shadow-xs">
+                    <i className="bi bi-camera" />
+                    <span>{subiendoFoto ? 'Subiendo...' : formData.fotoPerfilUrl ? 'Cambiar foto' : 'Subir foto'}</span>
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      className="hidden"
+                      disabled={subiendoFoto}
+                      onChange={handleUploadAvatar}
+                    />
+                  </label>
+                  {formData.fotoPerfilUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleChange({ target: { name: 'fotoPerfilUrl', value: '' } })}
+                      className="px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      Quitar foto
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Nombre y apellido */}
             <div className="grid grid-cols-2 gap-4">

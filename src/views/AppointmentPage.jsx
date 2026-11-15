@@ -351,6 +351,7 @@ const AppointmentPage = () => {
               formData={agenda.formData}
               pacientes={agenda.pacientes}
               odontologos={agenda.odontologos}
+              allAppointments={agenda.appointments}
               loading={agenda.loading}
               onChange={agenda.handleChange}
               onSubmit={() => agenda.handleSubmit(handleFormSuccess)}

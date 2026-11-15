@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../config/api.config';
  * Autentica al usuario contra el backend Spring Boot.
  * NO usa apiFetch porque en este endpoint todavía no hay token.
  *
- * @returns {{ token: string, rol: string, nombreCompleto: string, debeCambiarPassword?: boolean, username?: string }}
+ * @returns {{ token: string, rol: string, nombreCompleto: string, debeCambiarPassword?: boolean, username?: string, fotoPerfilUrl?: string }}
  */
 export const loginService = async (username, password) => {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -21,7 +21,7 @@ export const loginService = async (username, password) => {
 };
 
 /** Guarda las credenciales del usuario logueado en localStorage. */
-export const saveSession = ({ token, rol, nombreCompleto, debeCambiarPassword, username }) => {
+export const saveSession = ({ token, rol, nombreCompleto, debeCambiarPassword, username, fotoPerfilUrl }) => {
   localStorage.setItem('authToken',  token);
   localStorage.setItem('userRole',   rol);
   localStorage.setItem('userName',   nombreCompleto);
@@ -30,6 +30,11 @@ export const saveSession = ({ token, rol, nombreCompleto, debeCambiarPassword, u
   }
   if (username) {
     localStorage.setItem('userIdentifier', username);
+  }
+  if (fotoPerfilUrl) {
+    localStorage.setItem('userAvatar', fotoPerfilUrl);
+  } else {
+    localStorage.removeItem('userAvatar');
   }
 };
 
@@ -40,6 +45,46 @@ export const clearSession = () => localStorage.clear();
 export const getToken                = () => localStorage.getItem('authToken') ?? null;
 export const getUserName             = () => localStorage.getItem('userName')  ?? 'Usuario';
 export const getUserRole             = () => localStorage.getItem('userRole')  ?? '';
-export const getUserIdentifier       = () => localStorage.getItem('userIdentifier') ?? '';
+export const getUserIdentifier       = () => {
+  const direct = localStorage.getItem('userIdentifier');
+  if (direct) return direct;
+  const token = localStorage.getItem('authToken');
+  if (token) {
+    try {
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const jsonStr = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(jsonStr);
+        if (payload?.sub) {
+          localStorage.setItem('userIdentifier', payload.sub);
+          return payload.sub;
+        }
+      }
+    } catch {
+      // Ignorar fallback
+    }
+  }
+  return '';
+};
+export const getUserAvatar           = () => localStorage.getItem('userAvatar') ?? null;
 export const getDebeCambiarPassword  = () => localStorage.getItem('debeCambiarPassword') === 'true';
 export const setDebeCambiarPassword  = (val) => localStorage.setItem('debeCambiarPassword', String(val));
+
+
+/**
+ * Solicita enlace de recuperación de contraseña de auto-servicio.
+ * @param {string} identificador Email o username
+ */
+export const solicitarRecuperacionPassword = async (identificador) => {
+  const response = await fetch(`${API_BASE_URL}/auth/solicitar-recuperacion`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ identificador }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'No fue posible procesar la solicitud de recuperación.');
+  }
+  return data;
+};

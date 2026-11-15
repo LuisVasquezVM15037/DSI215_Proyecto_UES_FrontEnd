@@ -3,12 +3,13 @@ import { getCitaById, cambiarEstado } from '../services/cita.service';
 import {
   getEvaluacionByCita, createEvaluacion,
   getHallazgos, updateEstadoHallazgo, deleteHallazgo,
+  getTratamientosPendientesPaciente,
 } from '../services/consulta.service';
 import { alertSuccess, alertError, alertWarning, confirmDelete, toastSuccess } from '../utils/alert.utils';
 
 /**
  * Hook principal de la consulta activa.
- * Gestiona: cita, evaluación clínica y hallazgos del odontograma.
+ * Gestiona: cita, evaluación clínica, hallazgos del odontograma y trazabilidad de tratamientos pendientes.
  */
 export const useConsultaData = (citaId) => {
   const [cita,         setCita]         = useState(null);
@@ -18,6 +19,7 @@ export const useConsultaData = (citaId) => {
   const [observaciones,setObservaciones]= useState('');
   const [savingEval,   setSavingEval]   = useState(false);
   const [hallazgos,    setHallazgos]    = useState([]);
+  const [tratamientosPendientesPrevios, setTratamientosPendientesPrevios] = useState([]);
 
   // ── Carga inicial ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -35,9 +37,14 @@ export const useConsultaData = (citaId) => {
   const loadCita = async () => {
     setLoading(true);
     try {
-      // FIX BUG-09: pedir solo la cita por ID, no todas
       const data = await getCitaById(citaId);
       setCita(data);
+      if (data?.idPaciente) {
+        try {
+          const pendientes = await getTratamientosPendientesPaciente(data.idPaciente);
+          setTratamientosPendientesPrevios(pendientes || []);
+        } catch (_) {}
+      }
       await loadEvaluacion();
     } catch (err) {
       alertError(err.message);
@@ -74,11 +81,20 @@ export const useConsultaData = (citaId) => {
     }
     setSavingEval(true);
     try {
-      const data = await createEvaluacion({
-        idCita: parseInt(citaId), diagnostico, observaciones,
-      });
-      setEvaluacion(data);
-      alertSuccess('Evaluación guardada', 'Puedes continuar al odontograma.', 1800);
+      const payload = {
+        idCita:             parseInt(citaId),
+        idCitas:            parseInt(citaId),
+        diagnostico:        diagnostico.trim(),
+        observaciones:      observaciones.trim() || undefined,
+        motivoConsulta:     cita?.motivoCita || undefined,
+        temperatura:        cita?.signosVitales?.temperatura,
+        presionArterial:    cita?.signosVitales?.presionArterial,
+        frecuenciaCardiaca: cita?.signosVitales?.frecuenciaCardiaca,
+      };
+
+      const guardada = await createEvaluacion(payload);
+      setEvaluacion(guardada);
+      toastSuccess('Diagnóstico guardado correctamente');
       onSuccess?.();
     } catch (err) {
       alertError(err.message);
@@ -87,34 +103,33 @@ export const useConsultaData = (citaId) => {
     }
   };
 
-  // ── Cambiar estado de hallazgo (optimistic update) ────────────────────────
+  // ── Cambiar estado de un hallazgo ──────────────────────────────────────────
   const handleCambiarEstado = async (idPlan, nuevoEstado) => {
-    const prevHallazgos = hallazgos;
-    setHallazgos(prev =>
-      prev.map(h => h.idPlanTratamiento === idPlan ? { ...h, estadoPlan: nuevoEstado } : h)
-    );
     try {
       await updateEstadoHallazgo(idPlan, nuevoEstado);
+      setHallazgos(prev =>
+        prev.map(h => h.idPlanTratamiento === idPlan ? { ...h, estadoPlan: nuevoEstado } : h)
+      );
       toastSuccess('Estado actualizado');
     } catch (err) {
       alertError(err.message);
-      setHallazgos(prevHallazgos); // Revertir
     }
   };
 
-  // ── Eliminar hallazgo ─────────────────────────────────────────────────────
+  // ── Eliminar un hallazgo ───────────────────────────────────────────────────
   const handleEliminarHallazgo = async (idPlan) => {
     const confirmed = await confirmDelete('este hallazgo');
     if (!confirmed) return;
     try {
       await deleteHallazgo(idPlan);
       setHallazgos(prev => prev.filter(h => h.idPlanTratamiento !== idPlan));
+      toastSuccess('Hallazgo eliminado');
     } catch (err) {
       alertError(err.message);
     }
   };
 
-  // ── Finalizar consulta ────────────────────────────────────────────────────
+  // ── Finalizar consulta completa (Paso 4) ───────────────────────────────────
   const handleFinalizarConsulta = async (onSuccess) => {
     try {
       await cambiarEstado(citaId, 'COMPLETADA');
@@ -135,6 +150,7 @@ export const useConsultaData = (citaId) => {
     observaciones, setObservaciones,
     savingEval,
     hallazgos, setHallazgos,
+    tratamientosPendientesPrevios,
     fetchHallazgos,
     handleGuardarEvaluacion,
     handleCambiarEstado,

@@ -1,32 +1,5 @@
-/**
- * Propósito:
- * Componente visual para renderizar las iniciales de una persona o paciente en un círculo tipo avatar.
- * Asigna un gradiente cromático determinista basado en el código de caracteres de las iniciales
- * para brindar variedad visual coherente en listas de pacientes o usuarios, o muestra un tono neutro
- * si se encuentra marcado como inactivo.
- *
- * Ubicación y Rol:
- * Ubicado en 'src/components/ui/AvatarBadge.jsx'. Elemento de presentación en la capa
- * de componentes de interfaz atómicos.
- *
- * Trazabilidad (Referencias):
- * - Invocado desde:
- *   - 'src/components/AppointmentCard.jsx'
- *   - 'src/views/PatientManagementPage.jsx'
- *   - 'src/views/UserManagementPage.jsx'
- * - Consume:
- *   - React.
- *
- * Parámetros y Retornos:
- * @param {Object} props - Propiedades del avatar.
- * @param {string} [props.initials='?'] - Cadena con las iniciales a mostrar (se toman hasta 2 caracteres).
- * @param {'xs'|'sm'|'md'|'lg'} [props.size='md'] - Tamaño geométrico y tipográfico del contenedor.
- * @param {boolean} [props.inactive=false] - Si es true, suprime el degradado de color y aplica tonalidad gris inactiva.
- * @param {string} [props.className=''] - Clases utilitarias adicionales de Tailwind.
- * @returns {JSX.Element} Avatar circular estilizado con iniciales mayúsculas.
- */
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { resolverUrlArchivo } from '../../services/archivo.service';
 
 // Escala de dimensiones y tipografías para mantener consistencia proporcional
 const SIZES = {
@@ -46,7 +19,30 @@ const GRADIENTS = [
   'from-cyan-500 to-primary-600 text-white',
 ];
 
-const AvatarBadge = ({ initials = '?', size = 'md', inactive = false, className = '' }) => {
+const AvatarBadge = ({ initials = '?', size = 'md', inactive = false, className = '', src = null }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
+  if (src && !hasError) {
+    const fullUrl = resolverUrlArchivo(src);
+    return (
+      <img
+        src={fullUrl}
+        alt={initials}
+        onError={() => setHasError(true)}
+        className={`
+          ${SIZES[size] ?? SIZES.md}
+          rounded-full object-cover flex-shrink-0 select-none shadow-xs ring-2 ring-white
+          ${inactive ? 'grayscale opacity-60' : ''}
+          ${className}
+        `}
+      />
+    );
+  }
+
   // Función hash simple basada en el valor ASCII del primer carácter para consistencia cromática
   const charCode = initials?.charCodeAt(0) || 0;
   const colorIdx = charCode % GRADIENTS.length;
@@ -59,7 +55,6 @@ const AvatarBadge = ({ initials = '?', size = 'md', inactive = false, className 
       flex-shrink-0 select-none shadow-xs ring-2 ring-white
       ${className}
     `}>
-      {/* Recorte a máximo dos letras en mayúsculas para encajar adecuadamente en el contenedor */}
       {initials.slice(0, 2).toUpperCase()}
     </div>
   );
