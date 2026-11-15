@@ -49,6 +49,7 @@ export default function NotificacionesPage() {
       setNotificaciones((prev) =>
         prev.map((n) => (n.id === id ? { ...n, leida: true } : n))
       );
+      window.dispatchEvent(new Event('notificaciones-actualizadas'));
     } catch (err) {
       console.error(err);
     }
@@ -58,6 +59,7 @@ export default function NotificacionesPage() {
     try {
       await marcarTodasNotificacionesLeidas({ rol: userRole });
       setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
+      window.dispatchEvent(new Event('notificaciones-actualizadas'));
       Swal.fire({
         icon: 'success',
         title: 'Bandeja actualizada',
